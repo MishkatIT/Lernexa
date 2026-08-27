@@ -1,0 +1,48 @@
+# Root-level ignores for the Lernexa monorepo.
+# backend/ and frontend/ keep their own generated .gitignore as well.
+
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# environment — never commit real secrets
+.env
+.env.*
+!.env.example
+
+# Strapi
+.strapi/
+.strapi-updater.json
+backend/dist/
+backend/build/
+backend/.cache/
+backend/.tmp/
+backend/exports/
+backend/*.db
+backend/*.sqlite
+backend/database/*.db
+
+# Next.js
+.next/
+frontend/out/
+frontend/.vercel/
+
+# build / coverage
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
