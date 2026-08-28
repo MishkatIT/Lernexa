@@ -222,6 +222,11 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
         .filter((id): id is number => typeof id === 'number'),
     );
 
+    const quiz = (await strapi.db.query('api::quiz.quiz').findOne({
+      where: { course: { id: course.id } },
+      orderBy: { id: 'asc' },
+    })) as { documentId: string } | null;
+
     const orderedForNext = lessons.map((l) => ({ id: l.documentId, order: l.order }));
 
     ctx.body = {
@@ -247,6 +252,7 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
           orderedForNext,
           lessons.filter((l) => doneIds.has(l.id)).map((l) => l.documentId),
         ),
+        quizId: quiz?.documentId ?? null,
       },
     };
   },

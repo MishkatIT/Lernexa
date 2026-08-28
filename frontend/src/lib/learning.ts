@@ -25,6 +25,7 @@ export type LearnContext = {
   lessons: LearnLesson[];
   progress: Progress;
   nextLessonId: string | null;
+  quizId: string | null;
 };
 
 export async function getMyEnrollments(): Promise<MyEnrollment[]> {

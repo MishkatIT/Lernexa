@@ -98,7 +98,7 @@ Tracked against `docs/IMPLEMENTATION_CHECKLIST.md`.
 - [x] **Phase 2** — Auth + session _(httpOnly cookie, forced student role, role-aware redirect)_
 - [x] **Phase 3** — Courses, lessons, ownership _(4 enforcement layers, forced owner on create, 409 delete guards)_
 - [x] **Phase 4** — Enrollment, learning, progress _(derived progress, batched instructor table, lesson viewer, `progress.test.ts`)_
-- [ ] **Phase 5** — Quiz + server-side grading
+- [x] **Phase 5** — Quiz + server-side grading _(isCorrect never leaves the server, pure gradeQuiz, snapshot attempts, grading.test.ts)_
 - [ ] **Phase 6** — Admin panel + user blocking
 - [ ] **Phase 7** — Blog, tests, seed
 - [ ] **Phase 8** — Freeze, polish, ship
@@ -112,7 +112,7 @@ _Added in Phase 7 once the seed script runs against production._
 Documented deliberately (see `docs/DECISIONS.md`):
 
 - No refresh-token rotation — fixed-lifetime JWT; logout clears the cookie but does not revoke server-side.
-- No rate limiting on login/register — Strapi enforces none by default.
+- Login/register rate limiting is only Strapi's U&P default (10 requests / 60s per IP) — no stricter per-account throttling or lockout.
 - No E2E tests — backend authorization and business-logic unit tests were prioritised for the timeline.
 - No image uploads — cover images are URLs; Railway's filesystem is ephemeral.
 - Lesson ordering is a manual integer, not drag-and-drop.

@@ -14,11 +14,13 @@ export function LessonViewer({
   lesson,
   prevId,
   nextId,
+  quizId,
 }: {
   courseId: string;
   lesson: LearnLesson;
   prevId: string | null;
   nextId: string | null;
+  quizId: string | null;
 }) {
   const router = useRouter();
   const [completed, setCompleted] = useState(lesson.completed);
@@ -101,6 +103,12 @@ export function LessonViewer({
             onClick={() => router.push(`/learn/${courseId}/${nextId}`)}
           >
             Next →
+          </Button>
+        ) : quizId ? (
+          <Button
+            onClick={() => router.push(`/learn/${courseId}/quiz/${quizId}`)}
+          >
+            Take the quiz →
           </Button>
         ) : (
           <Button

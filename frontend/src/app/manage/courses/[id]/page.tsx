@@ -6,9 +6,11 @@ import {
   getManagedLessons,
   getStudentProgress,
 } from "@/lib/courses";
+import { getCourseQuiz } from "@/lib/quiz";
 import { CourseForm } from "@/components/manage/CourseForm";
 import { LessonManager } from "@/components/manage/LessonManager";
 import { DeleteCourseButton } from "@/components/manage/DeleteCourseButton";
+import { QuizBuilder } from "@/components/manage/QuizBuilder";
 import { ProgressBar } from "@/components/progress/ProgressBar";
 
 export const metadata: Metadata = { title: "Edit course" };
@@ -19,10 +21,11 @@ export default async function EditCoursePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [course, lessons, students] = await Promise.all([
+  const [course, lessons, students, quiz] = await Promise.all([
     getCourseByDocumentId(id),
     getManagedLessons(id),
     getStudentProgress(id),
+    getCourseQuiz(id),
   ]);
   if (!course) notFound();
 
@@ -60,6 +63,14 @@ export default async function EditCoursePage({
         <div className="mt-3">
           <LessonManager courseDocumentId={course.documentId} lessons={lessons} />
         </div>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="text-[16px] font-semibold text-ink-900">Quiz</h2>
+        <p className="mt-1 mb-3 text-[13px] text-ink-500">
+          One quiz per course. Each question needs exactly one correct option.
+        </p>
+        <QuizBuilder courseDocumentId={course.documentId} quiz={quiz} />
       </section>
 
       <section className="mt-10">

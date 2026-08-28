@@ -53,6 +53,7 @@ export default async function LessonPage({ params }: Params) {
         lesson={lesson}
         prevId={prev?.id ?? null}
         nextId={next?.id ?? null}
+        quizId={next ? null : ctx.quizId}
       />
     </div>
   );

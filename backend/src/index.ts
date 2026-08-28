@@ -53,6 +53,20 @@ const STUDENT_LEARNING = [
 ];
 const STUDENT_PROGRESS_VIEW = ['api::course.course.studentProgress'];
 
+// Phase 5 — quizzes.
+const QUIZ_MANAGE = [
+  'api::quiz.quiz.find',
+  'api::quiz.quiz.findOne',
+  'api::quiz.quiz.create',
+  'api::quiz.quiz.update',
+  'api::quiz.quiz.delete',
+];
+const STUDENT_QUIZ = [
+  'api::quiz.quiz.take',
+  'api::quiz.quiz.submit',
+  'api::quiz-attempt.quiz-attempt.me',
+];
+
 /**
  * RBAC as code — DECISIONS.md D-029. Every guarded action a role may call is
  * listed here and applied idempotently on boot, so local and Railway always
@@ -71,6 +85,7 @@ const ROLE_GRANTS: Record<string, string[]> = {
     ...COURSE_READ,
     ...COURSE_WRITE,
     ...LESSON_ALL,
+    ...QUIZ_MANAGE,
     ...STUDENT_PROGRESS_VIEW,
   ],
   'content-manager': [
@@ -78,6 +93,7 @@ const ROLE_GRANTS: Record<string, string[]> = {
     ...COURSE_READ,
     ...COURSE_WRITE,
     ...LESSON_ALL,
+    ...QUIZ_MANAGE,
     ...STUDENT_PROGRESS_VIEW,
   ],
   instructor: [
@@ -85,12 +101,14 @@ const ROLE_GRANTS: Record<string, string[]> = {
     ...COURSE_READ,
     ...COURSE_WRITE,
     ...LESSON_ALL,
+    ...QUIZ_MANAGE,
     ...STUDENT_PROGRESS_VIEW,
   ],
   student: [
     'plugin::users-permissions.user.me',
     ...COURSE_READ,
     ...STUDENT_LEARNING,
+    ...STUDENT_QUIZ,
   ],
 };
 

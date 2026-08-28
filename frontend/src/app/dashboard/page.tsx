@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireRole } from "@/lib/guards";
 import { getMyEnrollments } from "@/lib/learning";
+import { getMyAttempts } from "@/lib/quiz";
 import { ProgressRing } from "@/components/progress/ProgressRing";
 import { ProgressBar } from "@/components/progress/ProgressBar";
 import { LogoutButton } from "@/components/LogoutButton";
@@ -10,7 +11,10 @@ export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
   const user = await requireRole("student");
-  const enrollments = await getMyEnrollments();
+  const [enrollments, attempts] = await Promise.all([
+    getMyEnrollments(),
+    getMyAttempts(),
+  ]);
 
   // Resume: the first in-progress course, else the most recent enrolment.
   const resume =
@@ -100,6 +104,34 @@ export default async function DashboardPage() {
               ))}
             </ul>
           </section>
+
+          {attempts.length > 0 ? (
+            <section className="mt-10">
+              <h2 className="text-[16px] font-semibold text-ink-900">
+                Recent quiz scores
+              </h2>
+              <ul className="mt-3 flex flex-col gap-1 text-[14px]">
+                {attempts.slice(0, 5).map((a, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center justify-between rounded-sm border border-ink-200 bg-paper-raised px-4 py-2.5"
+                  >
+                    <span className="text-ink-900">
+                      {a.quiz?.title ?? "Quiz"}
+                      {a.quiz?.course ? (
+                        <span className="ml-2 text-[13px] text-ink-500">
+                          {a.quiz.course.title}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="font-mono text-[13px] text-ink-500">
+                      {a.score}/{a.totalQuestions}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
         </>
       )}
     </div>
