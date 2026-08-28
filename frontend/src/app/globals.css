@@ -1,51 +1,165 @@
 @import "tailwindcss";
 
 /*
- * Lernexa design tokens — see docs/DESIGN_SYSTEM.md.
- * Three colour families (ink / paper / marigold), semantic colours for state
- * only, one radius value, a 4px spacing base (Tailwind's default scale already
- * steps in 4px). No dark mode — deliberate (D-018).
+ * Lernexa design tokens.
+ *
+ * Three colour families (ink / paper / marigold) + semantic state colours. The
+ * token *names* are stable and theme-agnostic — `text-ink-900` is always
+ * "primary text", `bg-paper` is always "page background". The *values* flip
+ * between light and dark, so components never branch on theme.
+ *
+ * One radius scale, a 4px spacing base (Tailwind's default), a small type scale.
+ * Elevation is borders and tonal steps, not shadows (one shadow, for overlays).
  */
 @theme {
-  /* Ink — text, borders, surfaces. Slightly blue-black, never pure #000. */
-  --color-ink-900: #14161a;
-  --color-ink-700: #3a3f47;
-  --color-ink-500: #6b7280;
-  --color-ink-200: #d8d6d1;
-  --color-ink-100: #eceae5;
+  /* ---- Colour (light) ---- */
+  --color-ink-900: #14161a; /* primary text, headings */
+  --color-ink-700: #3a3f47; /* secondary text */
+  --color-ink-500: #6b7280; /* meta, captions */
+  --color-ink-200: #d8d6d1; /* borders, dividers */
+  --color-ink-100: #eceae5; /* hover / inset surfaces, track fill */
 
-  /* Paper — warm off-white. Cards lift by being whiter, not by shadow. */
-  --color-paper: #faf8f4;
-  --color-paper-raised: #ffffff;
+  --color-paper: #faf8f4; /* page background */
+  --color-paper-raised: #ffffff; /* cards, inputs, header */
 
-  /* Marigold — the single accent. Actions, focus, brand. Never green. */
-  --color-accent-100: #fbefd9;
-  --color-accent-500: #e09a28;
-  --color-accent-600: #c9821a;
+  --color-accent-100: #fbefd9; /* tinted accent surface */
+  --color-accent-500: #e09a28; /* focus ring, hover */
+  --color-accent-600: #c9821a; /* primary action, active */
+  --color-on-accent: #ffffff; /* text/icon on an accent fill */
 
-  /* Semantic — state only. Green means completed and nothing else. */
-  --color-success: #2f7d4f;
+  --color-success: #2f7d4f; /* completed — and nothing else */
   --color-warning: #b3801a;
   --color-danger: #a3352c;
 
-  /* Type — IBM Plex superfamily, wired from next/font in layout.tsx. */
+  /* ---- Type ---- */
   --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
   --font-serif: var(--font-plex-serif), ui-serif, Georgia, serif;
   --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
 
-  /* Radius — 4px everywhere. One value. */
-  --radius-sm: 4px;
-  --radius-md: 4px;
-  --radius-lg: 4px;
-  --radius-xl: 4px;
-  --radius-2xl: 4px;
-  --radius-3xl: 4px;
+  --text-display: 2rem; /* 32 — page titles */
+  --text-display--line-height: 1.25;
+  --text-display--font-weight: 600;
+  --text-display--letter-spacing: -0.02em;
+  --text-h1: 1.5rem; /* 24 */
+  --text-h1--line-height: 1.33;
+  --text-h1--font-weight: 600;
+  --text-h1--letter-spacing: -0.015em;
+  --text-h2: 1.1875rem; /* 19 */
+  --text-h2--line-height: 1.4;
+  --text-h2--font-weight: 600;
+  --text-h3: 1rem; /* 16 */
+  --text-h3--line-height: 1.5;
+  --text-h3--font-weight: 600;
+  --text-body: 0.9375rem; /* 15 — UI default */
+  --text-body--line-height: 1.6;
+  --text-reading: 1.125rem; /* 18 — lesson & blog body, Plex Serif */
+  --text-reading--line-height: 1.72;
+  --text-small: 0.8125rem; /* 13 — meta */
+  --text-small--line-height: 1.5;
+
+  /* ---- Radius ---- */
+  --radius-xs: 3px;
+  --radius-sm: 5px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 8px;
+  --radius-2xl: 8px;
+
+  /* ---- Motion ---- */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* ---- One shadow, for overlays only ---- */
+  --shadow-overlay: 0 12px 32px -8px rgb(20 22 26 / 0.18),
+    0 2px 8px -2px rgb(20 22 26 / 0.1);
+}
+
+/* dark: variant keys off the resolved data-theme the no-flash script stamps. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ---- Colour (dark) — the same product in a dark room, not an inversion ---- */
+:root[data-theme="dark"] {
+  --color-ink-900: #e9e6df;
+  --color-ink-700: #b4b0a6;
+  --color-ink-500: #86827a;
+  --color-ink-200: #34373d;
+  --color-ink-100: #24272c;
+
+  --color-paper: #131417;
+  --color-paper-raised: #191b1f;
+
+  --color-accent-100: #2c2416;
+  --color-accent-500: #e6a740;
+  --color-accent-600: #eeb254;
+  --color-on-accent: #14161a;
+
+  --color-success: #57ab74;
+  --color-warning: #d1a244;
+  --color-danger: #d67c72;
+
+  --shadow-overlay: 0 16px 40px -12px rgb(0 0 0 / 0.55),
+    0 4px 12px -4px rgb(0 0 0 / 0.4);
+}
+
+/* Pre-hydration frame for a system-dark user before the script runs. Scoped so
+   an explicit light choice is never overridden. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-ink-900: #e9e6df;
+    --color-ink-700: #b4b0a6;
+    --color-ink-500: #86827a;
+    --color-ink-200: #34373d;
+    --color-ink-100: #24272c;
+    --color-paper: #131417;
+    --color-paper-raised: #191b1f;
+    --color-accent-100: #2c2416;
+    --color-accent-500: #e6a740;
+    --color-accent-600: #eeb254;
+    --color-on-accent: #14161a;
+    --color-success: #57ab74;
+    --color-warning: #d1a244;
+    --color-danger: #d67c72;
+  }
+}
+
+html {
+  color-scheme: light dark;
+  background: var(--color-paper);
 }
 
 body {
   background: var(--color-paper);
   color: var(--color-ink-900);
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: var(--text-body);
   line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Only surfaces and borders transition on theme change — not layout. */
+body,
+header,
+aside,
+[data-surface],
+.themed {
+  transition:
+    background-color 0.18s var(--ease-out-soft),
+    border-color 0.18s var(--ease-out-soft),
+    color 0.18s var(--ease-out-soft);
+}
+
+::selection {
+  background: var(--color-accent-100);
+  color: var(--color-ink-900);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

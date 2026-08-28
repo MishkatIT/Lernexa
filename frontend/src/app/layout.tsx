@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Serif, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/components/theme/ThemeProvider";
+import { NO_FLASH_SCRIPT } from "@/lib/theme";
 
 // One superfamily, three jobs: Sans for UI, Serif for long-form reading
 // (lesson + blog body), Mono for ids, timestamps and code.
@@ -31,12 +33,11 @@ export const metadata: Metadata = {
     template: "%s · Lernexa",
   },
   description:
-    "Lernexa is a learning management system built around progress, not catalogue — every screen answers “where am I?” before “what’s available?”",
+    "Lernexa is a learning platform built around progress, not catalogue — every screen answers “where am I?” before “what’s available?”",
   applicationName: "Lernexa",
   openGraph: {
     title: "Lernexa",
-    description:
-      "A learning management system built around progress, not catalogue.",
+    description: "Learning that moves forward. Progress, not catalogue.",
     siteName: "Lernexa",
     type: "website",
   },
@@ -49,11 +50,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
       className={`${plexSans.variable} ${plexSerif.variable} ${plexMono.variable} h-full antialiased`}
     >
-      {/* suppressHydrationWarning: browser extensions (Grammarly, etc.) mutate
-          <body> attributes before hydration. Scoped one level deep — real
-          content mismatches still warn. */}
+      {/* suppressHydrationWarning: the no-flash script and browser extensions
+          both mutate <html>/<body> before hydration. Scoped one level deep —
+          real content mismatches still warn. */}
       <body suppressHydrationWarning className="min-h-full flex flex-col">
-        {children}
+        <script dangerouslySetInnerHTML={{ __html: NO_FLASH_SCRIPT }} />
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );
