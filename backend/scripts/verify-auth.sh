@@ -14,9 +14,18 @@ pass=0 fail=0
 # -g disables curl's globbing so [ ] in query strings are sent literally.
 CURL="curl -sg"
 
+# Retries once on an empty token — Strapi rate-limits /api/auth/* (10 / 60s),
+# which repeated runs can hit. This is an authorization test, not a rate test.
 jwt() {
-  $CURL -X POST "$BASE/api/auth/local" -H 'Content-Type: application/json' \
-    -d "{\"identifier\":\"$1\",\"password\":\"$PW\"}" | grep -oE '"jwt":"[^"]+"' | cut -d'"' -f4
+  local t
+  t=$($CURL -X POST "$BASE/api/auth/local" -H 'Content-Type: application/json' \
+    -d "{\"identifier\":\"$1\",\"password\":\"$PW\"}" | grep -oE '"jwt":"[^"]+"' | cut -d'"' -f4)
+  if [ -z "$t" ]; then
+    sleep 61
+    t=$($CURL -X POST "$BASE/api/auth/local" -H 'Content-Type: application/json' \
+      -d "{\"identifier\":\"$1\",\"password\":\"$PW\"}" | grep -oE '"jwt":"[^"]+"' | cut -d'"' -f4)
+  fi
+  printf '%s' "$t"
 }
 code() { # method url [token] [body]
   local m="$1" u="$2" t="${3:-}" b="${4:-}"
