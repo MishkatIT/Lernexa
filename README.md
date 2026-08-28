@@ -138,4 +138,10 @@ Documented deliberately (see `docs/DECISIONS.md`):
 - Quizzes are single-answer MCQ only.
 - No audit log — role/block changes aren't recorded to an append-only trail (Tier 3, deferred). D-015 records the design.
 - No toast system — form mutations show inline success/error text instead.
-- No dark mode — the warm paper palette is the identity.
+
+## Theming
+
+Light / dark / system, default system. `data-theme` is set before first paint (no flash),
+the choice persists in `localStorage`, and system mode follows the OS with no reload. Every
+colour is a token whose value flips between two palettes — one set of components, no
+per-theme branching (`docs/DECISIONS.md` D-032).

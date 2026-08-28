@@ -53,7 +53,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       {/* suppressHydrationWarning: the no-flash script and browser extensions
           both mutate <html>/<body> before hydration. Scoped one level deep —
           real content mismatches still warn. */}
-      <body suppressHydrationWarning className="min-h-full flex flex-col">
+      <body
+        suppressHydrationWarning
+        className="flex min-h-full flex-col overflow-x-hidden"
+      >
         <script dangerouslySetInnerHTML={{ __html: NO_FLASH_SCRIPT }} />
         <ThemeProvider>{children}</ThemeProvider>
       </body>

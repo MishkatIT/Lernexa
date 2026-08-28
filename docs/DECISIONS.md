@@ -137,10 +137,10 @@ The spec's prose says admins "can do everything"; the matrix says ❌ for both. 
 matrix wins.** Noticing the contradiction and implementing the specific over the general
 is a reading-comprehension signal. Be ready to point at the matrix if questioned.
 
-### D-018 — No dark mode
-**Why:** a half-finished dark mode looks worse than none, and the warm paper palette is
-the identity. **Tradeoff:** some users prefer dark. Accepted as a decision, not an
-omission — say so if asked.
+### D-018 — No dark mode ~~(superseded by D-032)~~
+**Original:** a half-finished dark mode looks worse than none, and the warm paper palette
+is the identity. **Tradeoff:** some users prefer dark. Accepted as a decision, not an
+omission.
 
 ### D-019 — Users are blocked, never deleted
 No delete-user capability. **Why:** cascading deletes across enrollments, completions and
@@ -310,9 +310,27 @@ under a double-submit race.
 **Tradeoff:** one denormalised column per row, kept in sync by the two
 controllers that write these tables. Small and contained.
 
----
+### D-032 — Full light / dark / system theme (supersedes D-018)
 
-## Known limitations
+**Decision:** the frontend supports Light, Dark and System, defaulting to
+System. D-018 (no dark mode) is reversed.
+
+**Why the reversal is safe now:** D-018's real objection was "a half-finished
+dark mode looks worse than none". This implementation is not half-finished —
+every colour is a token, and the token *values* flip between two hand-tuned
+palettes while the token *names* stay the same, so there is exactly one set of
+components and no per-theme branching. An audit shows zero hard-coded colours
+in any page or component.
+
+**How:** `data-theme` is stamped on `<html>` by a tiny inline script before
+first paint (no flash); `ThemeProvider` hydrates from `localStorage`, follows
+the OS while in System mode with no reload, and an accessible `ThemeSwitcher`
+(menu, Escape, roving focus) sets the choice. `prefers-color-scheme` covers the
+pre-hydration frame for a system-dark visitor.
+
+**Tradeoff:** a second palette to maintain, and one `dangerouslySetInnerHTML`
+inline script (the standard no-flash technique — it only reads localStorage and
+sets an attribute).
 
 Put these in the README. Naming your own gaps is a strength signal.
 

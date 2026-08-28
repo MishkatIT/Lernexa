@@ -88,8 +88,10 @@ Semantic, used **only** for state:
 2. **The accent is never green.** So the eye learns instantly: marigold = do something,
    green = done.
 
-**No dark mode.** Deliberate: a half-finished dark mode looks worse than none, and the
-paper-warm palette is the identity. Say this if asked — it's a decision, not an omission.
+**Theming.** Light / dark / system, default system (DECISIONS.md D-032, which supersedes
+the earlier no-dark-mode call). Every colour is a token; the values flip between two
+palettes while the names stay, so there is one set of components. The warm paper palette
+is the light identity; dark is the same product in a dark room, not an inversion.
 
 ## Typography
 
