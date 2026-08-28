@@ -22,6 +22,14 @@ export class StrapiError extends Error {
   }
 }
 
+/** Thrown when the backend middleware reports the account is blocked. */
+export class AccountBlockedError extends Error {
+  constructor(readonly reason: string | null) {
+    super("ACCOUNT_BLOCKED");
+    this.name = "AccountBlockedError";
+  }
+}
+
 type StrapiFetchOptions = Omit<RequestInit, "headers"> & {
   token?: string | null;
   headers?: Record<string, string>;
@@ -49,11 +57,16 @@ export async function strapiFetch<T = unknown>(
   const body = await res.json().catch(() => null);
 
   if (!res.ok) {
+    const errObj = (body as { error?: { message?: string; details?: { reason?: string } } })
+      ?.error;
     const message =
-      (body as { error?: { message?: string }; message?: string })?.error
-        ?.message ??
+      errObj?.message ??
       (body as { message?: string })?.message ??
       `Strapi responded ${res.status}`;
+
+    if (message === "ACCOUNT_BLOCKED") {
+      throw new AccountBlockedError(errObj?.details?.reason ?? null);
+    }
     throw new StrapiError(message, res.status, body);
   }
 

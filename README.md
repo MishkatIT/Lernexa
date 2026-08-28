@@ -33,7 +33,7 @@ Lernexa/
 
 - **Node 22 LTS** (see `.nvmrc`). Node 20 LTS also works. Non-LTS versions are not supported by Strapi 5 / Next 16.
 - npm 10+
-- A PostgreSQL database for the backend (local or hosted). SQLite is supported locally for convenience but the deployed target is Postgres.
+- A PostgreSQL database for the backend (local or hosted). Postgres everywhere — no SQLite fallback.
 
 ## Run locally
 
@@ -57,8 +57,8 @@ npm run develop             # http://localhost:1337  (admin at /admin)
 | `TRANSFER_TOKEN_SALT` | Salt for data-transfer tokens. |
 | `JWT_SECRET` | Signs **end-user** (Users & Permissions) JWTs — this is the token Lernexa's session cookie carries. |
 | `ENCRYPTION_KEY` | Encrypts stored secrets (Strapi 5). |
-| `DATABASE_CLIENT` | `postgres` (deploy) or `sqlite` (local). |
-| `DATABASE_URL` | Full Postgres connection string. Railway injects this. |
+| `DATABASE_CLIENT` | `postgres` (local and deploy). |
+| `DATABASE_URL` | Full Postgres connection string. On Railway set it to `${{Postgres.DATABASE_URL}}`; blank locally (use the discrete `DATABASE_*` vars). |
 | `DATABASE_SSL` | `true` on Railway, `false` locally. |
 
 Generate each secret fresh — never reuse the values Strapi prints in dev:
@@ -99,7 +99,7 @@ Tracked against `docs/IMPLEMENTATION_CHECKLIST.md`.
 - [x] **Phase 3** — Courses, lessons, ownership _(4 enforcement layers, forced owner on create, 409 delete guards)_
 - [x] **Phase 4** — Enrollment, learning, progress _(derived progress, batched instructor table, lesson viewer, `progress.test.ts`)_
 - [x] **Phase 5** — Quiz + server-side grading _(isCorrect never leaves the server, pure gradeQuiz, snapshot attempts, grading.test.ts)_
-- [ ] **Phase 6** — Admin panel + user blocking
+- [x] **Phase 6** — Admin panel + user blocking _(platform API, per-request block check, registrationEnabled gate, attention queue)_
 - [ ] **Phase 7** — Blog, tests, seed
 - [ ] **Phase 8** — Freeze, polish, ship
 

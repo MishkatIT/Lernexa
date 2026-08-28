@@ -67,6 +67,15 @@ export default (plugin: any) => {
     const coreRegister = controller.register.bind(controller);
 
     controller.register = async (ctx: any) => {
+      // Gate on SiteSettings.registrationEnabled — enforced here, NOT by hiding
+      // the signup link (Tier 2.5, D-026). No row yet → default open.
+      const settings = await strapi.db
+        .query('api::site-setting.site-setting')
+        .findOne({});
+      if (settings && settings.registrationEnabled === false) {
+        return ctx.forbidden('Registration is currently disabled');
+      }
+
       // Layer 1 — allowlist. stripUnknown drops everything else (incl. role) so
       // the request still succeeds; only an invalid email/password 400s.
       const clean = await registerBodySchema.validate(ctx.request.body ?? {}, {

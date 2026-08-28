@@ -1,0 +1,26 @@
+{
+  "kind": "singleType",
+  "collectionName": "site_settings",
+  "info": {
+    "singularName": "site-setting",
+    "pluralName": "site-settings",
+    "displayName": "Site Settings",
+    "description": "One row of typed platform config. Public read (the header needs siteName), admin-only write."
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "siteName": {
+      "type": "string",
+      "default": "Lernexa",
+      "required": true
+    },
+    "registrationEnabled": {
+      "type": "boolean",
+      "default": true,
+      "required": true
+    }
+  }
+}

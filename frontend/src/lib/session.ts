@@ -1,8 +1,10 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { cache } from "react";
-import { strapiFetch, StrapiError } from "./strapi";
+import { strapiFetch, StrapiError, AccountBlockedError } from "./strapi";
+// `cookies` is used for get/set of the session token below.
 
 /**
  * The session cookie carries the raw Strapi JWT. httpOnly so browser JS cannot
@@ -55,6 +57,14 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     // blocked, role: { id, name, type } } — see the backend extension.
     return await strapiFetch<CurrentUser>("/api/users/me", { token });
   } catch (err) {
+    // Blocked mid-session (D-013 enforcement point 3). Cookies can't be mutated
+    // during render, so we redirect with the reason as a param; the stale cookie
+    // is cleared by the button on /account-blocked (a route handler).
+    if (err instanceof AccountBlockedError) {
+      redirect(
+        `/account-blocked?reason=${encodeURIComponent(err.reason ?? "")}`,
+      );
+    }
     // A stale or revoked token reads as "logged out", not a crash.
     if (err instanceof StrapiError && (err.status === 401 || err.status === 403)) {
       return null;

@@ -101,6 +101,16 @@ scale you'd cache blocked ids in Redis with a short TTL, or shorten token lifeti
 rely on refresh. **Open item:** verify empirically whether Strapi's per-request auth
 strategy already does this — confirmed only for the *login* path.
 
+**Empirical result (Strapi 5.52), Phase 6:** blocked a user, replayed their pre-block
+token against `/api/users/me`. Without the middleware the request gets a bare **401** —
+so 5.52's auth strategy *does* reject a blocked token, but generically. The
+`global::account-state` middleware upgrades that to a **403 `ACCOUNT_BLOCKED` + reason**,
+which is what lets the frontend route to `/account-blocked` and show the explanation.
+The middleware earns its place for the *shape* of the rejection, not for closing an open
+hole. Enforcement points: Strapi login callback (401), our middleware (403 + reason),
+Next.js `getCurrentUser` catches it → redirect to `/account-blocked?reason=`, UI disables
+self / last-admin actions and the controller re-checks (400).
+
 ### D-014 — Site settings as a Strapi Single Type, not a KV table
 **Why:** Single Types are a typed, schema-validated, single-row config model — exactly
 what's wanted, and built in. A `settings(key, value)` table would be untyped, unvalidated,

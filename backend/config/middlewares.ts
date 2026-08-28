@@ -26,6 +26,8 @@ const config = ({ env }: Core.Config.Shared.ConfigParams): Core.Config.Middlewar
   'strapi::session',
   'strapi::favicon',
   'strapi::public',
+  // Per-request block check — 403 ACCOUNT_BLOCKED before any route runs (D-013).
+  'global::account-state',
 ];
 
 export default config;

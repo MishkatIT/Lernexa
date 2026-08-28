@@ -67,6 +67,16 @@ const STUDENT_QUIZ = [
   'api::quiz-attempt.quiz-attempt.me',
 ];
 
+// Phase 6 — admin platform + site settings.
+const PLATFORM_ADMIN = [
+  'api::platform.platform.users',
+  'api::platform.platform.setRole',
+  'api::platform.platform.setBlock',
+  'api::platform.platform.stats',
+  'api::site-setting.site-setting.update',
+];
+const SETTINGS_READ = ['api::site-setting.site-setting.find'];
+
 /**
  * RBAC as code — DECISIONS.md D-029. Every guarded action a role may call is
  * listed here and applied idempotently on boot, so local and Railway always
@@ -87,6 +97,8 @@ const ROLE_GRANTS: Record<string, string[]> = {
     ...LESSON_ALL,
     ...QUIZ_MANAGE,
     ...STUDENT_PROGRESS_VIEW,
+    ...PLATFORM_ADMIN,
+    ...SETTINGS_READ,
   ],
   'content-manager': [
     'plugin::users-permissions.user.me',
@@ -95,6 +107,7 @@ const ROLE_GRANTS: Record<string, string[]> = {
     ...LESSON_ALL,
     ...QUIZ_MANAGE,
     ...STUDENT_PROGRESS_VIEW,
+    ...SETTINGS_READ,
   ],
   instructor: [
     'plugin::users-permissions.user.me',
@@ -103,17 +116,19 @@ const ROLE_GRANTS: Record<string, string[]> = {
     ...LESSON_ALL,
     ...QUIZ_MANAGE,
     ...STUDENT_PROGRESS_VIEW,
+    ...SETTINGS_READ,
   ],
   student: [
     'plugin::users-permissions.user.me',
     ...COURSE_READ,
     ...STUDENT_LEARNING,
     ...STUDENT_QUIZ,
+    ...SETTINGS_READ,
   ],
 };
 
 /** Actions granted to the built-in `public` role (anonymous visitors). */
-const PUBLIC_GRANTS = [...COURSE_READ];
+const PUBLIC_GRANTS = [...COURSE_READ, ...SETTINGS_READ];
 
 export default {
   register(/* { strapi } */) {},
@@ -148,5 +163,20 @@ export default {
 
     const publicRole = await roleRepo.findOne({ where: { type: 'public' } });
     if (publicRole) await grant(publicRole.id, PUBLIC_GRANTS, 'public');
+
+    // Ensure the SiteSettings single-type row exists so the register gate and
+    // the header have something to read on a fresh deploy.
+    const settingsRepo = strapi.db.query('api::site-setting.site-setting');
+    const existing = await settingsRepo.findOne({});
+    if (!existing) {
+      await settingsRepo.create({
+        data: {
+          siteName: 'Lernexa',
+          registrationEnabled: true,
+          publishedAt: new Date(),
+        },
+      });
+      strapi.log.info('[bootstrap] created SiteSettings row');
+    }
   },
 };

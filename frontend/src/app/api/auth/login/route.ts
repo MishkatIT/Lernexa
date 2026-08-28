@@ -34,15 +34,20 @@ export async function POST(req: Request) {
       redirectTo: dashboardPathFor(me.role?.type),
     });
   } catch (err) {
-    const status = err instanceof StrapiError ? err.status : 500;
-    if (status >= 500) {
-      return NextResponse.json({ ok: false, error: "Something went wrong" }, { status: 500 });
+    if (err instanceof StrapiError) {
+      if (/blocked/i.test(err.message)) {
+        return NextResponse.json(
+          { ok: false, error: "This account has been blocked by an administrator." },
+          { status: 403 },
+        );
+      }
+      if (err.status < 500) {
+        return NextResponse.json(
+          { ok: false, error: "Wrong email or password" },
+          { status: 401 },
+        );
+      }
     }
-    // Strapi returns 400 for bad credentials and for a blocked account. The
-    // blocked-account flow gets its own handling in Phase 6.
-    return NextResponse.json(
-      { ok: false, error: "Wrong email or password" },
-      { status: 401 },
-    );
+    return NextResponse.json({ ok: false, error: "Something went wrong" }, { status: 500 });
   }
 }
