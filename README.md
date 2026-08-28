@@ -110,12 +110,23 @@ Tracked against `docs/IMPLEMENTATION_CHECKLIST.md`.
 |---|---|
 | `admin@lernexa.test` | Admin |
 | `cm@lernexa.test` | Content Manager |
-| `instructor@lernexa.test` | Instructor (owns 2 courses) |
-| `instructor2@lernexa.test` | Instructor (owns 1 course — for the cross-instructor 403 demo) |
-| `student@lernexa.test` | Student (pre-enrolled, 2 of 4 lessons done) |
+| `instructor@lernexa.test` | Instructor (owns ~15 courses, incl. React Fundamentals) |
+| `instructor2@lernexa.test` | Instructor (owns ~15 courses, incl. API Design Basics — for the cross-instructor 403 demo) |
+| `student@lernexa.test` | Student (pre-enrolled in React Fundamentals, 2 of 4 lessons done, 1 quiz attempt) |
 | `blocked@lernexa.test` | Student, **blocked** (for the blocked-login demo) |
 
-Also seeds 3 courses (4 lessons each), 1 quiz (5 questions), and a published + draft blog post.
+Around those six accounts the seed builds a **large, realistic dataset** — ~97 users
+across every role, ~61 courses, ~356 lessons, 16 quizzes, ~220 enrolments, ~900
+lesson completions, ~35 quiz attempts, 40 blog posts and ~83 audit-log entries,
+with deliberate variety and edge cases (empty courses, students with no
+enrolments, instructors with no courses, stale drafts, a quiz with an
+unanswerable question, …). It is safe to run repeatedly.
+
+- `npm run seed` — build / top up the dataset (idempotent)
+- `SEED_SCALE=min npm run seed` — a small dataset for a quick check / CI
+- `npm run seed:reset` — wipe seeded data so the next `seed` rebuilds it clean (local only)
+
+Full details: [`backend/scripts/SEED.md`](backend/scripts/SEED.md).
 
 ## Tests
 

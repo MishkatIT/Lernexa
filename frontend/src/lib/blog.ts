@@ -15,11 +15,27 @@ export type PostListItem = {
 
 export type Post = PostListItem & { body: string | null };
 
-export async function listPublishedPosts(): Promise<PostListItem[]> {
-  const res = await strapiFetch<{ data: PostListItem[] }>("/api/blog-posts", {
-    cache: "no-store",
+export type PagedPosts = {
+  items: PostListItem[];
+  page: number;
+  pageCount: number;
+  total: number;
+};
+
+export async function listPublishedPosts(
+  page = 1,
+  pageSize = 10,
+): Promise<PagedPosts> {
+  const qs = new URLSearchParams({
+    "pagination[page]": String(Math.max(1, page)),
+    "pagination[pageSize]": String(pageSize),
   });
-  return res.data;
+  const res = await strapiFetch<{
+    data: PostListItem[];
+    meta?: { pagination?: { page: number; pageCount: number; total: number } };
+  }>(`/api/blog-posts?${qs}`, { cache: "no-store" });
+  const p = res.meta?.pagination ?? { page: 1, pageCount: 1, total: 0 };
+  return { items: res.data, page: p.page, pageCount: p.pageCount, total: p.total };
 }
 
 export async function getPublishedPost(slug: string): Promise<Post | null> {
@@ -39,12 +55,17 @@ export async function getPublishedPost(slug: string): Promise<Post | null> {
   }
 }
 
-/** Manager list — includes drafts (status=draft returns every entry's draft). */
+/** Manager list — includes drafts (status=draft returns every entry's draft).
+ *  pageSize 100 is Strapi's maxLimit; past ~100 posts this needs real paging. */
 export async function listManagedPosts(): Promise<PostListItem[]> {
   const token = await getToken();
+  const size = "pagination[pageSize]=100&sort=createdAt:desc";
   const [pub, draft] = await Promise.all([
-    strapiFetch<{ data: PostListItem[] }>("/api/blog-posts", { token }),
-    strapiFetch<{ data: PostListItem[] }>("/api/blog-posts?status=draft", { token }),
+    strapiFetch<{ data: PostListItem[] }>(`/api/blog-posts?${size}`, { token }),
+    strapiFetch<{ data: PostListItem[] }>(
+      `/api/blog-posts?status=draft&${size}`,
+      { token },
+    ),
   ]);
   const map = new Map<string, PostListItem>();
   for (const p of draft.data) map.set(p.documentId, p);

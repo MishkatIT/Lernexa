@@ -54,7 +54,7 @@ export const avatarSchema = z.object({
   avatarUrl: z
     .string()
     .trim()
-    .max(700_000, "That image is too large — try a smaller one")
+    .max(200_000, "That image is too large — try a smaller one")
     .refine(
       (v) =>
         v === "" ||

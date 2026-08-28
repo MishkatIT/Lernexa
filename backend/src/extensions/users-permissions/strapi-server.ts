@@ -27,8 +27,10 @@ const registerBodySchema = yup
 /**
  * `PUT /api/users/me` — a partial profile update. Every field is optional; only
  * the keys actually sent are written. `avatarUrl` holds either an http(s) URL or
- * a small client-resized image data URL (the frontend caps it near 256px); an
- * empty string clears it. The 700 KB ceiling is a guard, not a target.
+ * a small client-resized image data URL (the frontend caps it near 256px, ~20 KB);
+ * an empty string clears it. The 200 KB ceiling is a guard that also stays under
+ * Strapi's 256 KB `strapi::body` JSON limit, so a valid image is never rejected
+ * upstream of this check.
  */
 const AVATAR_URL_RE =
   /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=\s]+$|^https?:\/\/\S+$/;
@@ -39,7 +41,7 @@ const updateMeSchema = yup
     avatarUrl: yup
       .string()
       .trim()
-      .max(700000)
+      .max(200000)
       .matches(AVATAR_URL_RE, {
         excludeEmptyString: true,
         message: 'avatarUrl must be an image data URL or an http(s) URL',
@@ -144,6 +146,27 @@ export default (plugin: any) => {
   plugin.controllers.auth = (params: any) => {
     const controller = createAuthController(params);
     const coreRegister = controller.register.bind(controller);
+    const coreChangePassword = controller.changePassword?.bind(controller);
+
+    // POST /api/auth/change-password — audit the fact, never the password.
+    if (coreChangePassword) {
+      controller.changePassword = async (ctx: any) => {
+        await coreChangePassword(ctx); // throws on a wrong current password
+        if (ctx.state.user?.id) {
+          await strapi.service('api::audit-log.audit-log').record({
+            action: 'account.password_changed',
+            category: 'account',
+            ctx,
+            target: {
+              type: 'user',
+              id: ctx.state.user.id,
+              label: ctx.state.user.email ?? `user ${ctx.state.user.id}`,
+            },
+            metadata: {},
+          });
+        }
+      };
+    }
 
     controller.register = async (ctx: any) => {
       // Gate on SiteSettings.registrationEnabled — enforced here, NOT by hiding
@@ -196,6 +219,19 @@ export default (plugin: any) => {
             ? { id: studentRole.id, name: studentRole.name, type: studentRole.type }
             : created.role,
         };
+
+        await strapi.service('api::audit-log.audit-log').record({
+          action: 'user.registered',
+          category: 'account',
+          ctx,
+          actor: {
+            id: created.id,
+            label: fullName ? `${fullName} <${clean.email}>` : clean.email,
+            role: 'student',
+          },
+          target: { type: 'user', id: created.id, label: clean.email },
+          metadata: { email: clean.email },
+        });
       }
     };
 

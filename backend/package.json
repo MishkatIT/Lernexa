@@ -12,6 +12,7 @@
     "start": "strapi start",
     "strapi": "strapi",
     "seed": "node scripts/seed.js",
+    "seed:reset": "node scripts/seed-reset.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "upgrade": "npx @strapi/upgrade latest",

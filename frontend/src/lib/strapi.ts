@@ -33,26 +33,55 @@ export class AccountBlockedError extends Error {
 type StrapiFetchOptions = Omit<RequestInit, "headers"> & {
   token?: string | null;
   headers?: Record<string, string>;
+  /** Abort the request after this many ms. Default 10s. */
+  timeoutMs?: number;
 };
+
+/** Distinguishes "Strapi didn't answer in time" from an HTTP error status. */
+export class StrapiTimeoutError extends Error {
+  constructor() {
+    super("The API did not respond in time");
+    this.name = "StrapiTimeoutError";
+  }
+}
 
 export async function strapiFetch<T = unknown>(
   path: string,
-  { token, headers, cache, ...init }: StrapiFetchOptions = {},
+  { token, headers, cache, timeoutMs = 10_000, signal, ...init }: StrapiFetchOptions = {},
 ): Promise<T> {
   if (!BASE) throw new Error("STRAPI_URL is not set");
 
-  const res = await fetch(`${BASE}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...headers,
-    },
-    // Default: never cache — auth exchanges and user-scoped reads. A caller
-    // fetching genuinely public data (the course catalogue) may opt into
-    // caching explicitly.
-    cache: cache ?? "no-store",
-  });
+  // A hung upstream must not hang the whole SSR render. Combine our timeout
+  // with any caller-supplied signal.
+  const timeout = AbortSignal.timeout(timeoutMs);
+  const composedSignal = signal
+    ? AbortSignal.any([signal, timeout])
+    : timeout;
+
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      ...init,
+      signal: composedSignal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...headers,
+      },
+      // Default: never cache — auth exchanges and user-scoped reads. A caller
+      // fetching genuinely public data (the course catalogue) may opt into
+      // caching explicitly.
+      cache: cache ?? "no-store",
+    });
+  } catch (err) {
+    if (
+      err instanceof DOMException &&
+      (err.name === "TimeoutError" || err.name === "AbortError")
+    ) {
+      throw new StrapiTimeoutError();
+    }
+    throw err;
+  }
 
   const body = await res.json().catch(() => null);
 

@@ -404,17 +404,39 @@ than just happy paths.
 
 ## Seed (`npm run seed`) — idempotent
 
-- 4 users, one per role: `admin@lernexa.test`, `cm@lernexa.test`,
-  `instructor@lernexa.test`, `student@lernexa.test`
-- **A 2nd instructor** (`instructor2@lernexa.test`) owning a different course. This is
-  what makes the cross-instructor 403 demoable. **Do not skip it.**
-- **A blocked user** (`blocked@lernexa.test`) so the blocked-login state is demoable
+Full reference: **[`backend/scripts/SEED.md`](../backend/scripts/SEED.md)**.
+
+**The six anchor accounts** (unchanged — the demo depends on them):
+
+- one per role: `admin@lernexa.test`, `cm@lernexa.test`, `instructor@lernexa.test`
+- **2nd instructor** (`instructor2@lernexa.test`) owning different courses — makes the
+  cross-instructor 403 demoable. **Do not skip it.**
+- **blocked user** (`blocked@lernexa.test`) so the blocked-login state is demoable
   without breaking a working account mid-video.
-- 3 courses, ≥4 lessons each; 1 quiz with 5 questions
-- 1 published blog post + 1 draft
-- Student pre-enrolled in one course with 2 of 4 lessons complete — so progress shows a
-  real, non-zero, non-100% number on first load
-- A few audit entries so the log isn't empty
+- `student@lernexa.test` pre-enrolled in **React Fundamentals**, 2 of 4 lessons
+  complete, one quiz attempt — progress shows a real, non-zero, non-100% number on
+  first load. The bulk generator never touches this account.
+
+**The dataset built around them** (`SEED_SCALE=full`, the default):
+
+- ~97 users (2 admin / 3 CM / 12 instructor / ~80 student), ~7 blocked, 2 instructors
+  who own nothing
+- ~61 courses across ~30 topics, spread unevenly over the instructors; **4 with no
+  lessons**, ~9 with no enrolments, 3–4 with 30–45 students
+- ~356 lessons (0–12 per course, varied length, some with `order` gaps)
+- 16 quizzes — **exactly one** has a question with no correct option (the attention-queue
+  check); React Fundamentals keeps its 5-question checkpoint
+- ~220 enrolments spanning every progress state; ~900 lesson completions; ~35 quiz
+  attempts (some retakes)
+- 40 blog posts — 33 published over ~1 year, 7 drafts (~5 older than a week)
+- ~83 audit-log entries covering every action, spread over ~110 days
+
+Everything keys off a deterministic identifier or a seeded PRNG, so a re-run is a
+near-no-op. After **changing** the script, run `npm run seed:reset` first (it only
+touches a local DB) — otherwise a re-run layers a second dataset on top. `seed.js`
+finishes with a `verify()` pass that checks the data against the real query paths.
+
+`SEED_SCALE=min` produces ~1/6 the volume for a fast local check or CI.
 
 A reviewer who opens the Vercel URL and sees an empty app with a signup form spends
 ninety seconds and moves on. **Demo credentials in the README are the highest

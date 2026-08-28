@@ -2,7 +2,7 @@ import "server-only";
 
 import { strapiFetch } from "./strapi";
 import { getToken } from "./session";
-import { listManagedCourses, getStudentProgress } from "./courses";
+import { listAllManagedCourses, getStudentProgress } from "./courses";
 import { listManagedPosts } from "./blog";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -39,7 +39,7 @@ export type InstructorSnapshot = {
 export async function getInstructorSnapshot(
   userId: number,
 ): Promise<InstructorSnapshot> {
-  const courses = await listManagedCourses(userId);
+  const courses = await listAllManagedCourses(userId);
   const cutoff = Date.now() - WEEK_MS;
 
   const perCourse = await Promise.all(
@@ -136,7 +136,7 @@ export async function getWorklist(): Promise<Worklist> {
   const cutoff = Date.now() - WEEK_MS;
 
   const [courses, quizRes, posts] = await Promise.all([
-    listManagedCourses(),
+    listAllManagedCourses(),
     strapiFetch<{
       data: Array<{ course?: { documentId: string } | null }>;
     }>(

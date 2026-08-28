@@ -73,6 +73,7 @@ const PLATFORM_ADMIN = [
   'api::platform.platform.setRole',
   'api::platform.platform.setBlock',
   'api::platform.platform.stats',
+  'api::platform.platform.audit',
   'api::site-setting.site-setting.update',
 ];
 const SETTINGS_READ = ['api::site-setting.site-setting.find'];

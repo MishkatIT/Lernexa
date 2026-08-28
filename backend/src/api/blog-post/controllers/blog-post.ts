@@ -46,18 +46,23 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
     const isManager = MANAGER_ROLES.includes(ctx.state.user?.role?.type ?? '');
     const sanitized = await self.sanitizeQuery(ctx);
 
-    const wantsDraft =
-      isManager && String(ctx.query?.status ?? '') === 'draft';
+    // Non-managers are forced to published; a manager may ask for the draft set.
+    const status =
+      isManager && String(ctx.query?.status ?? '') === 'draft'
+        ? 'draft'
+        : 'published';
 
-    const rows = (await strapi.documents(UID).findMany({
+    // Core service `find` returns { results, pagination } — same pattern as the
+    // course controller. This is what makes ?pagination[page] actually work.
+    const { results, pagination } = (await strapi.service(UID).find({
       ...sanitized,
-      status: (wantsDraft ? 'draft' : 'published') as 'draft' | 'published', // forced for non-managers
+      status,
       fields: ['title', 'slug', 'coverImageUrl', 'publishedAt', 'createdAt'],
       populate: { author: { fields: ['fullName'] } },
       sort: ['publishedAt:desc'],
-    })) as unknown as BlogRow[];
+    })) as { results: BlogRow[]; pagination: unknown };
 
-    return self.transformResponse(rows.map(shape));
+    return self.transformResponse(results.map(shape), { pagination });
   },
 
   async findOne(ctx) {
@@ -121,13 +126,66 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
       populate: { author: { fields: ['fullName'] } },
     })) as unknown as BlogRow | null;
     if (!entity) return ctx.notFound();
+
+    await strapi.service('api::audit-log.audit-log').record({
+      action: 'blog.published',
+      category: 'content',
+      ctx,
+      target: { type: 'blog-post', id: ctx.params.id, label: entity.title },
+      metadata: { title: entity.title },
+    });
+
     return self.transformResponse(shape(entity));
   },
 
   /** POST /api/blog-posts/:id/unpublish */
   async unpublish(ctx) {
     const self = this as unknown as CoreHelpers;
+    const existing = (await strapi.documents(UID).findOne({
+      documentId: ctx.params.id,
+      fields: ['title'],
+    })) as unknown as { title?: string } | null;
+
     await strapi.documents(UID).unpublish({ documentId: ctx.params.id });
+
+    await strapi.service('api::audit-log.audit-log').record({
+      action: 'blog.unpublished',
+      category: 'content',
+      ctx,
+      target: {
+        type: 'blog-post',
+        id: ctx.params.id,
+        label: existing?.title ?? ctx.params.id,
+      },
+      metadata: existing?.title ? { title: existing.title } : {},
+    });
+
     return self.transformResponse({ documentId: ctx.params.id, publishedAt: null });
+  },
+
+  /** DELETE /api/blog-posts/:id */
+  async delete(ctx) {
+    const existing = (await strapi.documents(UID).findOne({
+      documentId: ctx.params.id,
+      fields: ['title'],
+    })) as unknown as { title?: string } | null;
+
+    const result = await super.delete(ctx);
+
+    if (existing) {
+      await strapi.service('api::audit-log.audit-log').record({
+        action: 'blog.deleted',
+        category: 'content',
+        ctx,
+        target: {
+          type: 'blog-post',
+          id: ctx.params.id,
+          label: existing.title ?? ctx.params.id,
+        },
+        metadata: existing.title ? { title: existing.title } : {},
+      });
+    }
+
+    return result;
   },
 }));

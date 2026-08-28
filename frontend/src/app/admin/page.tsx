@@ -1,18 +1,21 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getPlatformStats, getRecentlyBlocked } from "@/lib/admin";
+import { getRecentActivity, actionLabel } from "@/lib/audit";
 import { relativeTime } from "@/lib/format";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { Stat } from "@/components/ui/Stat";
 import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
 
 export const metadata: Metadata = { title: "Admin" };
 
 export default async function AdminDashboardPage() {
-  const [stats, recentlyBlocked] = await Promise.all([
+  const [stats, recentlyBlocked, activity] = await Promise.all([
     getPlatformStats(),
     getRecentlyBlocked(),
+    getRecentActivity(5),
   ]);
 
   const strip = [
@@ -139,6 +142,51 @@ export default async function AdminDashboardPage() {
                 </div>
                 <span className="shrink-0 font-mono text-small text-ink-500">
                   {relativeTime(u.blockedAt)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="mt-10">
+        <SectionHeader
+          title="Recent activity"
+          action={
+            <Link
+              href="/admin/audit"
+              className="text-small text-accent-600 hover:underline"
+            >
+              Full log →
+            </Link>
+          }
+        />
+        {activity.length === 0 ? (
+          <p className="mt-2 text-body text-ink-500">
+            Nothing logged yet. Security and content changes show up here.
+          </p>
+        ) : (
+          <ul className="mt-5 divide-y divide-ink-200 overflow-hidden rounded-lg border border-ink-200">
+            {activity.map((e) => (
+              <li
+                key={e.id}
+                className="flex items-center justify-between gap-4 bg-paper-raised px-4 py-3"
+              >
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <Badge
+                    tone={e.category === "security" ? "warning" : "neutral"}
+                  >
+                    {e.category}
+                  </Badge>
+                  <span className="min-w-0 truncate text-body text-ink-900">
+                    {actionLabel(e.action)}
+                    {e.targetLabel ? (
+                      <span className="text-ink-500"> · {e.targetLabel}</span>
+                    ) : null}
+                  </span>
+                </div>
+                <span className="shrink-0 font-mono text-small text-ink-500">
+                  {relativeTime(e.createdAt)}
                 </span>
               </li>
             ))}

@@ -112,9 +112,24 @@ export default {
     }
 
     const role = await s.db.query(ROLE).findOne({ where: { type: nextType } });
+    const previousType = target.role?.type ?? null;
     await s.db.query(USER).update({
       where: { id: targetId },
       data: { role: role.id },
+    });
+
+    await s.service('api::audit-log.audit-log').record({
+      action: 'user.role_changed',
+      category: 'security',
+      ctx,
+      target: {
+        type: 'user',
+        id: targetId,
+        label: target.fullName
+          ? `${target.fullName} <${target.email}>`
+          : target.email,
+      },
+      metadata: { from: previousType, to: nextType },
     });
 
     const updated = await s.db
@@ -163,6 +178,20 @@ export default {
             blockedBy: actorId,
           }
         : { blocked: false, blockedReason: null, blockedAt: null, blockedBy: null },
+    });
+
+    await s.service('api::audit-log.audit-log').record({
+      action: blocked ? 'user.blocked' : 'user.unblocked',
+      category: 'security',
+      ctx,
+      target: {
+        type: 'user',
+        id: targetId,
+        label: target.fullName
+          ? `${target.fullName} <${target.email}>`
+          : target.email,
+      },
+      metadata: blocked ? { reason } : {},
     });
 
     const updated = await s.db
@@ -264,6 +293,85 @@ export default {
           quizzesWithoutCorrectAnswer,
           coursesWithoutLessons,
           blockedUsers,
+        },
+      },
+    };
+  },
+
+  /**
+   * GET /api/platform/audit — read the append-only audit log.
+   * Query: page, pageSize, action, category, actorId, q, from, to, sort.
+   * `q` matches actor label, target label or action (case-insensitive).
+   */
+  async audit(ctx: any) {
+    const s: Core.Strapi = global.strapi;
+    const AUDIT = 'api::audit-log.audit-log';
+
+    const page = Math.max(1, Number(ctx.query.page) || 1);
+    const pageSize = clampPageSize(ctx.query.pageSize ?? 25, 100);
+    const action = (ctx.query.action ?? '').toString().trim();
+    const category = (ctx.query.category ?? '').toString().trim();
+    const actorId = Number(ctx.query.actorId);
+    const q = (ctx.query.q ?? '').toString().trim();
+    const from = (ctx.query.from ?? '').toString().trim();
+    const to = (ctx.query.to ?? '').toString().trim();
+
+    const where: Record<string, unknown> = {};
+    if (action) where.action = action;
+    if (['security', 'content', 'account'].includes(category)) {
+      where.category = category;
+    }
+    if (Number.isFinite(actorId) && actorId > 0) where.actorId = actorId;
+    if (q) {
+      where.$or = [
+        { actorLabel: { $containsi: q } },
+        { targetLabel: { $containsi: q } },
+        { action: { $containsi: q } },
+      ];
+    }
+    if (from || to) {
+      const range: Record<string, Date> = {};
+      if (from && !Number.isNaN(Date.parse(from))) range.$gte = new Date(from);
+      if (to && !Number.isNaN(Date.parse(to))) range.$lte = new Date(to);
+      if (Object.keys(range).length) where.createdAt = range;
+    }
+
+    const orderBy =
+      ctx.query.sort === 'oldest'
+        ? { createdAt: 'asc' as const }
+        : { createdAt: 'desc' as const };
+
+    const [rows, total] = await Promise.all([
+      s.db.query(AUDIT).findMany({
+        where,
+        orderBy,
+        offset: (page - 1) * pageSize,
+        limit: pageSize,
+      }),
+      s.db.query(AUDIT).count({ where }),
+    ]);
+
+    ctx.body = {
+      data: (rows as any[]).map((r) => ({
+        id: r.id,
+        action: r.action,
+        category: r.category,
+        actorId: r.actorId ?? null,
+        actorLabel: r.actorLabel ?? null,
+        actorRole: r.actorRole ?? null,
+        targetType: r.targetType ?? null,
+        targetId: r.targetId ?? null,
+        targetLabel: r.targetLabel ?? null,
+        metadata: r.metadata ?? null,
+        ip: r.ip ?? null,
+        createdAt: r.createdAt,
+      })),
+      meta: {
+        pagination: {
+          page,
+          pageSize,
+          total,
+          pageCount: Math.max(1, Math.ceil(total / pageSize)),
         },
       },
     };

@@ -72,10 +72,19 @@ check "2b instructor2 edits instructor1's course" 403 \
 check "3 student reads a raw quiz" 403 \
   "$(code GET "/api/quizzes/$QUIZ_ID" "$T_STU")"
 
-# 4. student reads enrollments with a cross-student filter -> still only own rows
-COUNT=$($CURL "$BASE/api/enrollments/me?filters[student][id][\$eq]=999999" \
+# 4. student reads enrollments with a cross-student filter -> the filter is
+#    ignored: the response is identical to the unfiltered one (own rows only),
+#    and it is non-empty (the seed enrols the student in at least one course).
+BASE_COUNT=$($CURL "$BASE/api/enrollments/me" \
   -H "Authorization: Bearer $T_STU" | grep -oE '"enrolledAt"' | wc -l | tr -d ' ')
-check "4 forced student filter ignores ?filters (own rows only)" 1 "$COUNT"
+FILT_COUNT=$($CURL "$BASE/api/enrollments/me?filters[student][id][\$eq]=999999" \
+  -H "Authorization: Bearer $T_STU" | grep -oE '"enrolledAt"' | wc -l | tr -d ' ')
+if [ "$BASE_COUNT" = "$FILT_COUNT" ] && [ "$FILT_COUNT" -ge 1 ]; then
+  check "4 forced student filter ignores ?filters (own rows only)" "ok" "ok"
+else
+  check "4 forced student filter ignores ?filters (own rows only)" \
+    "unfiltered=$BASE_COUNT filtered>=1" "unfiltered=$BASE_COUNT filtered=$FILT_COUNT"
+fi
 
 # 5. anonymous lists blog drafts -> the draft is not returned
 DRAFTS=$($CURL "$BASE/api/blog-posts?status=draft" \

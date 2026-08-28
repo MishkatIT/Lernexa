@@ -147,6 +147,14 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
       status: 'published',
     })) as CourseRow;
 
+    await strapi.service('api::audit-log.audit-log').record({
+      action: 'course.created',
+      category: 'content',
+      ctx,
+      target: { type: 'course', id: entity.documentId, label: entity.title },
+      metadata: { title: entity.title },
+    });
+
     return self.transformResponse(shapeCourse(entity));
   },
 
@@ -175,7 +183,17 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
       return;
     }
 
-    return super.delete(ctx);
+    const result = await super.delete(ctx);
+
+    await strapi.service('api::audit-log.audit-log').record({
+      action: 'course.deleted',
+      category: 'content',
+      ctx,
+      target: { type: 'course', id: course.documentId, label: course.title },
+      metadata: { title: course.title },
+    });
+
+    return result;
   },
 
   /**

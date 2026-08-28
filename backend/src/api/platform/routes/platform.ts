@@ -25,5 +25,6 @@ export default {
       config: adminOnly,
     },
     { method: 'GET', path: '/platform/stats', handler: 'platform.stats', config: adminOnly },
+    { method: 'GET', path: '/platform/audit', handler: 'platform.audit', config: adminOnly },
   ],
 };

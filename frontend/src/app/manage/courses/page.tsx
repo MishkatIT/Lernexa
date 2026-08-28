@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/session";
-import { listManagedCourses } from "@/lib/courses";
+import { listManagedCourses, listAllManagedCourses } from "@/lib/courses";
 import { getCourseIdsWithQuiz } from "@/lib/quiz";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ButtonLink } from "@/components/ui/Button";
+import { Pagination } from "@/components/ui/Pagination";
 
 export const metadata: Metadata = { title: "Courses" };
 
@@ -16,17 +17,29 @@ type Filter = "needs-lessons" | "needs-quiz" | undefined;
 export default async function ManageCoursesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string }>;
+  searchParams: Promise<{ filter?: string; page?: string }>;
 }) {
-  const filter = (await searchParams).filter as Filter;
+  const sp = await searchParams;
+  const filter = sp.filter as Filter;
+  const page = Math.max(1, Number(sp.page) || 1);
   const user = await getCurrentUser();
   const scopeToSelf = user?.role?.type === "instructor";
-  const [courses, quizCourseIds] = await Promise.all([
-    listManagedCourses(scopeToSelf ? user!.id : undefined),
+  const mineId = scopeToSelf ? user!.id : undefined;
+
+  // A "needs-*" filter has to look across every course, not one page.
+  const [pageData, quizCourseIds] = await Promise.all([
+    filter
+      ? listAllManagedCourses(mineId).then((items) => ({
+          items,
+          page: 1,
+          pageCount: 1,
+          total: items.length,
+        }))
+      : listManagedCourses({ mineId, page }),
     getCourseIdsWithQuiz(),
   ]);
 
-  const decorated = courses.map((c) => ({
+  const decorated = pageData.items.map((c) => ({
     ...c,
     noLessons: c.lessons.length === 0,
     noQuiz: !quizCourseIds.has(c.documentId),
@@ -54,8 +67,8 @@ export default async function ManageCoursesPage({
         title={scopeToSelf ? "Your courses" : "All courses"}
         description={
           filterLabel
-            ? `Filtered: ${filterLabel.toLowerCase()}.`
-            : `${courses.length} course${courses.length === 1 ? "" : "s"}.`
+            ? `${visible.length} ${filterLabel.toLowerCase()}.`
+            : `${pageData.total} course${pageData.total === 1 ? "" : "s"}.`
         }
         action={
           <ButtonLink href="/manage/courses/new" size="sm">
@@ -75,52 +88,77 @@ export default async function ManageCoursesPage({
       {visible.length === 0 ? (
         <div className="mt-8">
           <EmptyState
-            title={filterLabel ? "Nothing matches this filter" : "No courses yet"}
+            title={
+              filterLabel
+                ? "Nothing matches this filter"
+                : page > 1
+                  ? "Nothing on this page"
+                  : "No courses yet"
+            }
             description={
               filterLabel
                 ? "Every course in scope is in good shape."
-                : "Create your first course — you'll add lessons to it next."
+                : page > 1
+                  ? "Head back to the first page."
+                  : "Create your first course — you'll add lessons to it next."
             }
             action={
               filterLabel
                 ? undefined
-                : { label: "New course", href: "/manage/courses/new" }
+                : page > 1
+                  ? { label: "First page", href: "/manage/courses" }
+                  : { label: "New course", href: "/manage/courses/new" }
             }
           />
         </div>
       ) : (
-        <ul className="mt-6 flex flex-col gap-2">
-          {visible.map((c) => (
-            <li key={c.documentId}>
-              <Card
-                as={Link}
-                href={`/manage/courses/${c.documentId}`}
-                interactive
-                className="flex items-center justify-between gap-3 px-4 py-3"
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  <span className="truncate text-body font-medium text-ink-900">
-                    {c.title}
-                  </span>
-                  {!scopeToSelf && c.instructor?.fullName ? (
-                    <span className="shrink-0 text-small text-ink-500">
-                      {c.instructor.fullName}
+        <>
+          <ul className="mt-6 flex flex-col gap-2">
+            {visible.map((c) => (
+              <li key={c.documentId}>
+                <Card
+                  as={Link}
+                  href={`/manage/courses/${c.documentId}`}
+                  interactive
+                  className="flex items-center justify-between gap-3 px-4 py-3"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="truncate text-body font-medium text-ink-900">
+                      {c.title}
                     </span>
-                  ) : null}
-                </span>
-                <span className="flex shrink-0 items-center gap-2">
-                  {c.noLessons ? <Badge tone="warning">No lessons</Badge> : null}
-                  {!c.noLessons && c.noQuiz ? (
-                    <Badge tone="neutral">No quiz</Badge>
-                  ) : null}
-                  <span className="font-mono text-small text-ink-500">
-                    {c.lessons.length} lesson{c.lessons.length === 1 ? "" : "s"}
+                    {!scopeToSelf && c.instructor?.fullName ? (
+                      <span className="shrink-0 text-small text-ink-500">
+                        {c.instructor.fullName}
+                      </span>
+                    ) : null}
                   </span>
-                </span>
-              </Card>
-            </li>
-          ))}
-        </ul>
+                  <span className="flex shrink-0 items-center gap-2">
+                    {c.noLessons ? (
+                      <Badge tone="warning">No lessons</Badge>
+                    ) : null}
+                    {!c.noLessons && c.noQuiz ? (
+                      <Badge tone="neutral">No quiz</Badge>
+                    ) : null}
+                    <span className="font-mono text-small text-ink-500">
+                      {c.lessons.length} lesson
+                      {c.lessons.length === 1 ? "" : "s"}
+                    </span>
+                  </span>
+                </Card>
+              </li>
+            ))}
+          </ul>
+          {!filter ? (
+            <Pagination
+              className="mt-8"
+              page={pageData.page}
+              pageCount={pageData.pageCount}
+              makeHref={(p) =>
+                p === 1 ? "/manage/courses" : `/manage/courses?page=${p}`
+              }
+            />
+          ) : null}
+        </>
       )}
     </div>
   );

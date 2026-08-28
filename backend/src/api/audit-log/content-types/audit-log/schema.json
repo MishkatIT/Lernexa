@@ -1,0 +1,53 @@
+{
+  "kind": "collectionType",
+  "collectionName": "audit_logs",
+  "info": {
+    "singularName": "audit-log",
+    "pluralName": "audit-logs",
+    "displayName": "Audit Log",
+    "description": "Append-only record of security-sensitive and structural changes. Written only by the internal audit service; never edited or deleted."
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": true
+    }
+  },
+  "attributes": {
+    "action": {
+      "type": "string",
+      "required": true
+    },
+    "category": {
+      "type": "enumeration",
+      "enum": ["security", "content", "account"],
+      "required": true
+    },
+    "actorId": {
+      "type": "integer"
+    },
+    "actorLabel": {
+      "type": "string"
+    },
+    "actorRole": {
+      "type": "string"
+    },
+    "targetType": {
+      "type": "string"
+    },
+    "targetId": {
+      "type": "string"
+    },
+    "targetLabel": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "json"
+    },
+    "ip": {
+      "type": "string"
+    }
+  }
+}

@@ -332,12 +332,37 @@ pre-hydration frame for a system-dark visitor.
 inline script (the standard no-flash technique — it only reads localStorage and
 sets an attribute).
 
+### D-033 — Production-readiness pass: write rate limiting, security headers, query indexes
+
+**Decision:** three additions after a full-site review, each closing a concrete gap.
+
+1. **Per-IP write rate limit** — `src/middlewares/rate-limit.ts`, an in-memory sliding
+   window (default 60 mutating `/api/*` requests / 60s / IP, 5/60s for
+   `change-password`). Reads are untouched; the auth endpoints keep the tighter U&P
+   limit. Env-tunable (`RATE_LIMIT_MAX`, `RATE_LIMIT_ENABLED`). The unbounded
+   `quiz_attempts` write path was the trigger.
+2. **Frontend security headers** — `next.config.ts` sets CSP (`connect-src 'self'` is
+   the meaningful one — the browser never calls Strapi, so nothing should phone out),
+   `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, HSTS,
+   `poweredByHeader: false`.
+3. **Query indexes** — migration `…query-indexes.js` adds indexes on
+   `audit_logs(created_at | category | action)`, `blog_posts(published_at)`,
+   `courses(created_at)` — the columns the app sorts and filters on at real data
+   volume.
+
+**Tradeoff:** the rate limiter is per-instance (in-memory); a scaled-out deployment
+moves it to Redis, same as the `account-state` note. CSP keeps `'unsafe-inline'` for
+scripts/styles (Next injects both) — a per-request nonce is the next hardening step.
+
+**Rejected alternative:** capping `quiz_attempts` per (student, quiz) — multiple
+attempts with history is a product feature (DESIGN_SYSTEM.md §3).
+
 Put these in the README. Naming your own gaps is a strength signal.
 
 - **No refresh-token rotation.** Fixed-lifetime JWT; logout clears the cookie but doesn't
   revoke server-side. Would add a refresh endpoint + server-side session store.
-- **No rate limiting on login/register.** Strapi enforces none at the application layer
-  by default. Would add per-IP throttling in a Strapi middleware.
+- **Rate limiting is per-instance.** In-memory sliding window (D-033); U&P covers
+  login/register. A horizontally-scaled deploy needs a shared store (Redis).
 - **No E2E tests.** Backend authorization prioritised given the timeline.
 - **No image uploads** — cover images are URLs (spec permits this). Railway's filesystem
   is ephemeral; real uploads would need S3 or Cloudinary.

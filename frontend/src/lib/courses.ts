@@ -22,28 +22,76 @@ export type ManagedLesson = {
   videoUrl: string;
 };
 
-/** Public catalogue list. Server-forced: courses with zero lessons are already
+export type Paged<T> = {
+  items: T[];
+  page: number;
+  pageCount: number;
+  total: number;
+};
+
+type PagedResponse<T> = {
+  data: T[];
+  meta?: { pagination?: { page: number; pageCount: number; total: number } };
+};
+
+const fallbackPagination = { page: 1, pageCount: 1, total: 0 };
+
+/** Public catalogue, paginated. Server-forced: courses with zero lessons are
  *  filtered out by the controller for non-managers. */
-export async function listCatalogue(): Promise<CourseLite[]> {
-  const res = await strapiFetch<{ data: CourseLite[] }>(
-    "/api/courses?pagination[pageSize]=48&sort=createdAt:desc",
+export async function listCatalogue(
+  page = 1,
+  pageSize = 12,
+): Promise<Paged<CourseLite>> {
+  const qs = new URLSearchParams({
+    "pagination[page]": String(Math.max(1, page)),
+    "pagination[pageSize]": String(pageSize),
+    sort: "createdAt:desc",
+  });
+  const res = await strapiFetch<PagedResponse<CourseLite>>(
+    `/api/courses?${qs}`,
     { cache: "no-store" },
   );
-  return res.data;
+  const p = res.meta?.pagination ?? fallbackPagination;
+  return { items: res.data, page: p.page, pageCount: p.pageCount, total: p.total };
 }
 
-/** Manage list. Instructors pass their own id; managers see everything. */
-export async function listManagedCourses(mineId?: number): Promise<CourseLite[]> {
+/** Manage list, paginated. Instructors pass their own id; managers see all. */
+export async function listManagedCourses({
+  mineId,
+  page = 1,
+  pageSize = 20,
+}: {
+  mineId?: number;
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<Paged<CourseLite>> {
   const token = await getToken();
   const qs = new URLSearchParams({
-    "pagination[pageSize]": "48",
+    "pagination[page]": String(Math.max(1, page)),
+    "pagination[pageSize]": String(pageSize),
     sort: "createdAt:desc",
   });
   if (mineId) qs.set("filters[instructor][id][$eq]", String(mineId));
-  const res = await strapiFetch<{ data: CourseLite[] }>(`/api/courses?${qs}`, {
-    token,
-  });
-  return res.data;
+  const res = await strapiFetch<PagedResponse<CourseLite>>(
+    `/api/courses?${qs}`,
+    { token },
+  );
+  const p = res.meta?.pagination ?? fallbackPagination;
+  return { items: res.data, page: p.page, pageCount: p.pageCount, total: p.total };
+}
+
+/** Every managed course, across all pages — for aggregation (worklist,
+ *  instructor snapshot) where completeness matters more than payload size. */
+export async function listAllManagedCourses(
+  mineId?: number,
+): Promise<CourseLite[]> {
+  const out: CourseLite[] = [];
+  for (let page = 1; ; page += 1) {
+    const res = await listManagedCourses({ mineId, page, pageSize: 100 });
+    out.push(...res.items);
+    if (page >= res.pageCount) break;
+  }
+  return out;
 }
 
 export async function getCourseByDocumentId(
