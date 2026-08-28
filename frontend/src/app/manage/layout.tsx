@@ -28,6 +28,14 @@ export default async function ManageLayout({ children }: { children: ReactNode }
           >
             Courses
           </Link>
+          {user.role?.type === "admin" || user.role?.type === "content-manager" ? (
+            <Link
+              href="/manage/blog"
+              className="rounded-sm px-2 py-1.5 text-ink-700 hover:bg-ink-100"
+            >
+              Blog
+            </Link>
+          ) : null}
           <Link href="/courses" className="rounded-sm px-2 py-1.5 text-ink-700 hover:bg-ink-100">
             Public catalogue
           </Link>

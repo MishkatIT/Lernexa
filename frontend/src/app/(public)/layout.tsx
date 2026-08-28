@@ -22,6 +22,9 @@ export default async function PublicLayout({ children }: { children: ReactNode }
             <Link href="/courses" className="text-ink-700 hover:text-ink-900">
               Courses
             </Link>
+            <Link href="/blog" className="text-ink-700 hover:text-ink-900">
+              Blog
+            </Link>
             {user ? (
               <Link
                 href={dashboardPathFor(user.role?.type)}

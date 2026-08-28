@@ -100,12 +100,32 @@ Tracked against `docs/IMPLEMENTATION_CHECKLIST.md`.
 - [x] **Phase 4** — Enrollment, learning, progress _(derived progress, batched instructor table, lesson viewer, `progress.test.ts`)_
 - [x] **Phase 5** — Quiz + server-side grading _(isCorrect never leaves the server, pure gradeQuiz, snapshot attempts, grading.test.ts)_
 - [x] **Phase 6** — Admin panel + user blocking _(platform API, per-request block check, registrationEnabled gate, attention queue)_
-- [ ] **Phase 7** — Blog, tests, seed
+- [x] **Phase 7** — Blog, tests, seed _(published-only public blog, permission-matrix.test.ts, verify-auth.sh, idempotent seed)_
 - [ ] **Phase 8** — Freeze, polish, ship
 
 ## Demo credentials
 
-_Added in Phase 7 once the seed script runs against production._
+`npm run seed` (in `backend/`) creates these � password **`Lernexa123!`** for every account:
+
+| Email | Role |
+|---|---|
+| `admin@lernexa.test` | Admin |
+| `cm@lernexa.test` | Content Manager |
+| `instructor@lernexa.test` | Instructor (owns 2 courses) |
+| `instructor2@lernexa.test` | Instructor (owns 1 course � for the cross-instructor 403 demo) |
+| `student@lernexa.test` | Student (pre-enrolled, 2 of 4 lessons done) |
+| `blocked@lernexa.test` | Student, **blocked** (for the blocked-login demo) |
+
+Also seeds 3 courses (4 lessons each), 1 quiz (5 questions), and a published + draft blog post.
+
+## Tests
+
+```bash
+cd backend
+npm test                                   # vitest: grading + progress + permission matrix
+TEST_API_URL=https://your.railway.app npm test   # run the matrix against production
+bash scripts/verify-auth.sh [BASE_URL]      # 9 authorization checks with curl
+```
 
 ## Known limitations
 

@@ -77,6 +77,19 @@ const PLATFORM_ADMIN = [
 ];
 const SETTINGS_READ = ['api::site-setting.site-setting.find'];
 
+// Phase 7 — blog.
+const BLOG_READ = [
+  'api::blog-post.blog-post.find',
+  'api::blog-post.blog-post.findOne',
+];
+const BLOG_WRITE = [
+  'api::blog-post.blog-post.create',
+  'api::blog-post.blog-post.update',
+  'api::blog-post.blog-post.delete',
+  'api::blog-post.blog-post.publish',
+  'api::blog-post.blog-post.unpublish',
+];
+
 /**
  * RBAC as code — DECISIONS.md D-029. Every guarded action a role may call is
  * listed here and applied idempotently on boot, so local and Railway always
@@ -99,6 +112,8 @@ const ROLE_GRANTS: Record<string, string[]> = {
     ...STUDENT_PROGRESS_VIEW,
     ...PLATFORM_ADMIN,
     ...SETTINGS_READ,
+    ...BLOG_READ,
+    ...BLOG_WRITE,
   ],
   'content-manager': [
     'plugin::users-permissions.user.me',
@@ -108,6 +123,8 @@ const ROLE_GRANTS: Record<string, string[]> = {
     ...QUIZ_MANAGE,
     ...STUDENT_PROGRESS_VIEW,
     ...SETTINGS_READ,
+    ...BLOG_READ,
+    ...BLOG_WRITE,
   ],
   instructor: [
     'plugin::users-permissions.user.me',
@@ -117,6 +134,7 @@ const ROLE_GRANTS: Record<string, string[]> = {
     ...QUIZ_MANAGE,
     ...STUDENT_PROGRESS_VIEW,
     ...SETTINGS_READ,
+    ...BLOG_READ,
   ],
   student: [
     'plugin::users-permissions.user.me',
@@ -124,11 +142,12 @@ const ROLE_GRANTS: Record<string, string[]> = {
     ...STUDENT_LEARNING,
     ...STUDENT_QUIZ,
     ...SETTINGS_READ,
+    ...BLOG_READ,
   ],
 };
 
 /** Actions granted to the built-in `public` role (anonymous visitors). */
-const PUBLIC_GRANTS = [...COURSE_READ, ...SETTINGS_READ];
+const PUBLIC_GRANTS = [...COURSE_READ, ...SETTINGS_READ, ...BLOG_READ];
 
 export default {
   register(/* { strapi } */) {},
