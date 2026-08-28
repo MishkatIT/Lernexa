@@ -138,4 +138,5 @@ Documented deliberately (see `docs/DECISIONS.md`):
 - Lesson ordering is a manual integer, not drag-and-drop.
 - Quizzes are single-answer MCQ only.
 - No audit log — role/block changes aren't recorded to an append-only trail (Tier 3, deferred). D-015 records the design.
+- No toast system — form mutations show inline success/error text instead.
 - No dark mode — the warm paper palette is the identity.

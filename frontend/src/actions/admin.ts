@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { getToken } from "@/lib/session";
 import { strapiFetch, StrapiError } from "@/lib/strapi";
 import type { ActionResult } from "./courses";
@@ -20,6 +20,7 @@ export async function setUserRole(
       body: JSON.stringify({ role }),
     });
     revalidatePath("/admin/users");
+    revalidateTag("platform-stats", "max");
     return { ok: true };
   } catch (err) {
     return {
@@ -44,6 +45,7 @@ export async function setUserBlock(
     });
     revalidatePath("/admin/users");
     revalidatePath("/admin");
+    revalidateTag("platform-stats", "max");
     return { ok: true };
   } catch (err) {
     return {

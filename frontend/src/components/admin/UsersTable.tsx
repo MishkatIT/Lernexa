@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { setUserRole, setUserBlock } from "@/actions/admin";
 import { Button } from "@/components/ui/Button";
@@ -144,10 +144,30 @@ function BlockModal({
 }) {
   const [reason, setReason] = useState("");
   const name = user.fullName ?? user.email;
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    textareaRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !busy) onCancel();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [busy, onCancel]);
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink-900/40 p-4">
-      <div className="w-full max-w-md rounded-sm border border-ink-200 bg-paper-raised p-6 shadow-lg">
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-ink-900/40 p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !busy) onCancel();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Block ${name}`}
+        className="w-full max-w-md rounded-sm border border-ink-200 bg-paper-raised p-6 shadow-lg"
+      >
         <h2 className="text-[17px] font-semibold text-ink-900">Block {name}</h2>
         <p className="mt-1 text-[13px] text-ink-500">
           They&apos;ll be signed out on their next request and shown this reason.
@@ -156,6 +176,7 @@ function BlockModal({
           Reason (required)
         </label>
         <textarea
+          ref={textareaRef}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           className="mt-1 min-h-20 w-full rounded-sm border border-ink-200 bg-paper-raised px-3 py-2 text-[14px] outline-none focus:ring-2 focus:ring-accent-500"

@@ -48,13 +48,37 @@ export default async function LessonPage({ params }: Params) {
         />
       </aside>
 
-      <LessonViewer
-        courseId={courseId}
-        lesson={lesson}
-        prevId={prev?.id ?? null}
-        nextId={next?.id ?? null}
-        quizId={next ? null : ctx.quizId}
-      />
+      <div className="min-w-0 flex-1">
+        {/* Mobile: the track collapses to a compact strip above the content. */}
+        <div className="border-b border-ink-200 bg-paper-raised px-6 py-3 lg:hidden">
+          <p className="font-mono text-[13px] text-ink-500">
+            {ctx.course.title} · Lesson {index + 1} of {ctx.lessons.length} ·{" "}
+            {ctx.progress.percent}% complete
+          </p>
+          <div className="mt-2 flex gap-1">
+            {ctx.lessons.map((l) => (
+              <span
+                key={l.id}
+                className={`h-1.5 flex-1 rounded-sm ${
+                  l.completed
+                    ? "bg-success"
+                    : l.id === lesson.id
+                      ? "bg-accent-500"
+                      : "bg-ink-100"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        <LessonViewer
+          courseId={courseId}
+          lesson={lesson}
+          prevId={prev?.id ?? null}
+          nextId={next?.id ?? null}
+          quizId={next ? null : ctx.quizId}
+        />
+      </div>
     </div>
   );
 }

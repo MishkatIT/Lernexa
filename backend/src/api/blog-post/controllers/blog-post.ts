@@ -16,6 +16,7 @@ type BlogRow = {
   body: string | null;
   coverImageUrl: string | null;
   publishedAt: string | null;
+  createdAt: string | null;
   author?: { fullName: string | null } | null;
 };
 
@@ -26,6 +27,7 @@ const shape = (b: BlogRow) => ({
   body: b.body ?? null,
   coverImageUrl: b.coverImageUrl ?? null,
   publishedAt: b.publishedAt ?? null,
+  createdAt: b.createdAt ?? null,
   author: b.author ? { fullName: b.author.fullName ?? null } : null,
 });
 
@@ -50,7 +52,7 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
     const rows = (await strapi.documents(UID).findMany({
       ...sanitized,
       status: (wantsDraft ? 'draft' : 'published') as 'draft' | 'published', // forced for non-managers
-      fields: ['title', 'slug', 'coverImageUrl', 'publishedAt'],
+      fields: ['title', 'slug', 'coverImageUrl', 'publishedAt', 'createdAt'],
       populate: { author: { fields: ['fullName'] } },
       sort: ['publishedAt:desc'],
     })) as unknown as BlogRow[];

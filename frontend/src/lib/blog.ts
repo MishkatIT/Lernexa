@@ -9,6 +9,7 @@ export type PostListItem = {
   slug: string | null;
   coverImageUrl: string | null;
   publishedAt: string | null;
+  createdAt: string | null;
   author: { fullName: string | null } | null;
 };
 

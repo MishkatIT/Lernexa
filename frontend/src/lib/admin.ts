@@ -1,5 +1,6 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
 import { strapiFetch } from "./strapi";
 import { getToken } from "./session";
 
@@ -38,12 +39,25 @@ export type PlatformUser = {
   role: { type: string; name: string } | null;
 };
 
+// Stats are the same for every admin, so they're cached 60s under the tag
+// `platform-stats` (PERFORMANCE.md). Role/block mutations call
+// revalidateTag('platform-stats'). `unstable_cache` can't read cookies itself,
+// so the token comes in as an argument.
+const cachedStats = unstable_cache(
+  async (token: string): Promise<PlatformStats> => {
+    const res = await strapiFetch<{ data: PlatformStats }>(
+      "/api/platform/stats",
+      { token },
+    );
+    return res.data;
+  },
+  ["platform-stats"],
+  { revalidate: 60, tags: ["platform-stats"] },
+);
+
 export async function getPlatformStats(): Promise<PlatformStats> {
   const token = await getToken();
-  const res = await strapiFetch<{ data: PlatformStats }>("/api/platform/stats", {
-    token,
-  });
-  return res.data;
+  return cachedStats(token ?? "");
 }
 
 export async function listPlatformUsers(params: {
