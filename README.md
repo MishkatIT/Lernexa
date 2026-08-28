@@ -101,18 +101,18 @@ Tracked against `docs/IMPLEMENTATION_CHECKLIST.md`.
 - [x] **Phase 5** — Quiz + server-side grading _(isCorrect never leaves the server, pure gradeQuiz, snapshot attempts, grading.test.ts)_
 - [x] **Phase 6** — Admin panel + user blocking _(platform API, per-request block check, registrationEnabled gate, attention queue)_
 - [x] **Phase 7** — Blog, tests, seed _(published-only public blog, permission-matrix.test.ts, verify-auth.sh, idempotent seed)_
-- [ ] **Phase 8** — Freeze, polish, ship
+- [x] **Phase 8** — Polish _(error / not-found / forbidden states, loading skeletons, README)_ · ship pending
 
 ## Demo credentials
 
-`npm run seed` (in `backend/`) creates these � password **`Lernexa123!`** for every account:
+`npm run seed` (in `backend/`) creates these — password **`Lernexa123!`** for every account:
 
 | Email | Role |
 |---|---|
 | `admin@lernexa.test` | Admin |
 | `cm@lernexa.test` | Content Manager |
 | `instructor@lernexa.test` | Instructor (owns 2 courses) |
-| `instructor2@lernexa.test` | Instructor (owns 1 course � for the cross-instructor 403 demo) |
+| `instructor2@lernexa.test` | Instructor (owns 1 course — for the cross-instructor 403 demo) |
 | `student@lernexa.test` | Student (pre-enrolled, 2 of 4 lessons done) |
 | `blocked@lernexa.test` | Student, **blocked** (for the blocked-login demo) |
 
@@ -137,4 +137,5 @@ Documented deliberately (see `docs/DECISIONS.md`):
 - No image uploads — cover images are URLs; Railway's filesystem is ephemeral.
 - Lesson ordering is a manual integer, not drag-and-drop.
 - Quizzes are single-answer MCQ only.
+- No audit log — role/block changes aren't recorded to an append-only trail (Tier 3, deferred). D-015 records the design.
 - No dark mode — the warm paper palette is the identity.
