@@ -11,6 +11,14 @@ Strapi is the security boundary and the only thing that touches the database. Ne
 a server-rendered client that holds the session cookie and never exposes the JWT to the
 browser.
 
+## Live
+
+| | URL |
+|---|---|
+| Frontend (Vercel) | https://frontend-xi-silk-30.vercel.app |
+| Backend / API (Railway) | https://lernexa-production.up.railway.app |
+| Strapi admin | https://lernexa-production.up.railway.app/admin |
+
 ## Repository layout
 
 ```
@@ -85,7 +93,7 @@ npm run dev                 # http://localhost:3000
 
 Tracked against `docs/IMPLEMENTATION_CHECKLIST.md`.
 
-- [ ] **Phase 0** — Monorepo + deploy skeleton _(code scaffolded and building; Railway + Vercel deploy pending)_
+- [x] **Phase 0** — Monorepo + deploy skeleton _(both apps live on Railway + Vercel)_
 - [ ] **Phase 1** — Brand + content types
 - [ ] **Phase 2** — Auth + session
 - [ ] **Phase 3** — Courses, lessons, ownership
