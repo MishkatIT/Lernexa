@@ -1,0 +1,10 @@
+<svg width="184" height="32" viewBox="0 0 184 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Mark -->
+  <rect x="4" y="4" width="24" height="6" rx="1" fill="currentColor"/>
+  <rect x="4" y="13" width="24" height="6" rx="1" fill="currentColor"/>
+  <rect x="5" y="23" width="22" height="4" rx="1" stroke="currentColor" stroke-width="2"/>
+  <!-- Wordmark: IBM Plex Sans SemiBold, tracking -0.02em. Mark-to-text gap = half the mark height. -->
+  <text x="48" y="23" fill="currentColor"
+        font-family="'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif"
+        font-size="24" font-weight="600" letter-spacing="-0.48">Lernexa</text>
+</svg>

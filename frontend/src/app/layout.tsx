@@ -1,30 +1,60 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { IBM_Plex_Sans, IBM_Plex_Serif, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// One superfamily, three jobs: Sans for UI, Serif for long-form reading
+// (lesson + blog body), Mono for ids, timestamps and code.
+const plexSans = IBM_Plex_Sans({
+  variable: "--font-plex-sans",
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const plexSerif = IBM_Plex_Serif({
+  variable: "--font-plex-serif",
   subsets: ["latin"],
+  weight: ["400"],
+  display: "swap",
+});
+
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-plex-mono",
+  subsets: ["latin"],
+  weight: ["400"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Lernexa",
+  title: {
+    default: "Lernexa",
+    template: "%s · Lernexa",
+  },
   description:
-    "Lernexa — a learning management system built around progress, not catalogue.",
+    "Lernexa is a learning management system built around progress, not catalogue — every screen answers “where am I?” before “what’s available?”",
+  applicationName: "Lernexa",
+  openGraph: {
+    title: "Lernexa",
+    description:
+      "A learning management system built around progress, not catalogue.",
+    siteName: "Lernexa",
+    type: "website",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
+      className={`${plexSans.variable} ${plexSerif.variable} ${plexMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      {/* suppressHydrationWarning: browser extensions (Grammarly, etc.) mutate
+          <body> attributes before hydration. Scoped one level deep — real
+          content mismatches still warn. */}
+      <body suppressHydrationWarning className="min-h-full flex flex-col">
+        {children}
+      </body>
     </html>
   );
 }

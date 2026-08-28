@@ -1,0 +1,21 @@
+{
+  "collectionName": "components_quiz_questions",
+  "info": {
+    "displayName": "Question",
+    "icon": "question",
+    "description": "A prompt plus its options. Student submits an option id, never an index."
+  },
+  "options": {},
+  "attributes": {
+    "prompt": {
+      "type": "text",
+      "required": true
+    },
+    "options": {
+      "type": "component",
+      "repeatable": true,
+      "component": "quiz.option",
+      "min": 2
+    }
+  }
+}

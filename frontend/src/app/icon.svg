@@ -1,0 +1,7 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Lernexa mark: three stacked bars, top two filled, bottom outlined.
+       Literally 2-of-3 complete — the logo is a progress indicator. -->
+  <rect x="4" y="4" width="24" height="6" rx="1" fill="#14161A"/>
+  <rect x="4" y="13" width="24" height="6" rx="1" fill="#14161A"/>
+  <rect x="5" y="23" width="22" height="4" rx="1" stroke="#14161A" stroke-width="2"/>
+</svg>

@@ -94,7 +94,7 @@ npm run dev                 # http://localhost:3000
 Tracked against `docs/IMPLEMENTATION_CHECKLIST.md`.
 
 - [x] **Phase 0** — Monorepo + deploy skeleton _(both apps live on Railway + Vercel)_
-- [ ] **Phase 1** — Brand + content types
+- [x] **Phase 1** — Brand + content types _(data model, four roles, IBM Plex + design tokens)_
 - [ ] **Phase 2** — Auth + session
 - [ ] **Phase 3** — Courses, lessons, ownership
 - [ ] **Phase 4** — Enrollment, learning, progress

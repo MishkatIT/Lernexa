@@ -1,0 +1,36 @@
+{
+  "kind": "collectionType",
+  "collectionName": "lesson_completions",
+  "info": {
+    "singularName": "lesson-completion",
+    "pluralName": "lesson-completions",
+    "displayName": "Lesson Completion",
+    "description": "The progress system. One row per (student, lesson) completed. No percentage is ever stored."
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "student": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "required": true
+    },
+    "lesson": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::lesson.lesson",
+      "required": true
+    },
+    "course": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::course.course"
+    },
+    "completedAt": {
+      "type": "datetime"
+    }
+  }
+}

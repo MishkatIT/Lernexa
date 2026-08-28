@@ -1,26 +1,51 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Lernexa design tokens — see docs/DESIGN_SYSTEM.md.
+ * Three colour families (ink / paper / marigold), semantic colours for state
+ * only, one radius value, a 4px spacing base (Tailwind's default scale already
+ * steps in 4px). No dark mode — deliberate (D-018).
+ */
+@theme {
+  /* Ink — text, borders, surfaces. Slightly blue-black, never pure #000. */
+  --color-ink-900: #14161a;
+  --color-ink-700: #3a3f47;
+  --color-ink-500: #6b7280;
+  --color-ink-200: #d8d6d1;
+  --color-ink-100: #eceae5;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  /* Paper — warm off-white. Cards lift by being whiter, not by shadow. */
+  --color-paper: #faf8f4;
+  --color-paper-raised: #ffffff;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Marigold — the single accent. Actions, focus, brand. Never green. */
+  --color-accent-100: #fbefd9;
+  --color-accent-500: #e09a28;
+  --color-accent-600: #c9821a;
+
+  /* Semantic — state only. Green means completed and nothing else. */
+  --color-success: #2f7d4f;
+  --color-warning: #b3801a;
+  --color-danger: #a3352c;
+
+  /* Type — IBM Plex superfamily, wired from next/font in layout.tsx. */
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-plex-serif), ui-serif, Georgia, serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
+
+  /* Radius — 4px everywhere. One value. */
+  --radius-sm: 4px;
+  --radius-md: 4px;
+  --radius-lg: 4px;
+  --radius-xl: 4px;
+  --radius-2xl: 4px;
+  --radius-3xl: 4px;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink-900);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.6;
 }

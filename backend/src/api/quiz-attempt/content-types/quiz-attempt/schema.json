@@ -1,0 +1,40 @@
+{
+  "kind": "collectionType",
+  "collectionName": "quiz_attempts",
+  "info": {
+    "singularName": "quiz-attempt",
+    "pluralName": "quiz-attempts",
+    "displayName": "Quiz Attempt",
+    "description": "A historical record. totalQuestions and answers are a snapshot at submit time, never recomputed."
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "student": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "required": true
+    },
+    "quiz": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::quiz.quiz",
+      "required": true
+    },
+    "score": {
+      "type": "integer"
+    },
+    "totalQuestions": {
+      "type": "integer"
+    },
+    "answers": {
+      "type": "json"
+    },
+    "submittedAt": {
+      "type": "datetime"
+    }
+  }
+}
