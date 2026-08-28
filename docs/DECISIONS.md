@@ -243,6 +243,44 @@ you can't finish is noise.**
 
 ---
 
+## New in implementation
+
+### D-029 — RBAC granted in code (bootstrap), not the plugin UI
+
+**Decision:** the four roles and their permission grants live in a `ROLE_GRANTS`
+map in `backend/src/index.ts` `bootstrap()`, applied idempotently on every boot.
+Nothing is enabled by clicking the Users & Permissions admin screens.
+
+**Why:** permissions toggled in the plugin UI are rows in the local database. They
+do not travel with the code, so local and the Railway deploy drift, and a fresh
+deploy comes up with everything denied. A code map is reviewable in the diff, is
+the same everywhere, and pairs naturally with `permission-matrix.test.ts` — both
+read from the same intent.
+
+**Tradeoff:** bootstrap only ever *adds* grants; it never revokes. Removing a
+permission means editing the map *and* clearing the stale row (or resetting the
+role). Acceptable — grants are add-mostly and the test suite catches an over-grant.
+
+**Rejected:** configuring permissions through the admin UI and documenting the
+clicks in the README — unreproducible, and invisible in code review.
+
+### D-030 — Registration strips the body, then forces the role
+
+**Decision:** the `register` override runs a yup allowlist with `stripUnknown`
+(keeps only `email`, `password`, `fullName`), then sets the new user's role to
+`student` from a server-resolved id.
+
+**Why strip rather than reject:** Strapi 5.52 core already 400s on an unknown
+`role` param, but a hard reject is worse UX than silently ignoring it, and the
+RBAC matrix expects "signup with `role: admin` → account created, as a student".
+Stripping gets that; the forced role makes it safe regardless of core behaviour.
+
+**Tradeoff:** two representations of "what a registration accepts" (the yup schema
+here and the zod schema on the frontend form). They are intentionally close but
+not shared — different runtimes.
+
+---
+
 ## Known limitations
 
 Put these in the README. Naming your own gaps is a strength signal.

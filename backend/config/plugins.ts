@@ -26,9 +26,13 @@ const deniedTypes = [
 const config = ({ env }: Core.Config.Shared.ConfigParams): Core.Config.Plugin => ({
   'users-permissions': {
     config: {
-      jwtManagement: 'refresh',
-      sessions: {
-        httpOnly: true,
+      // Classic long-lived plugin JWT, NOT the access/refresh session model the
+      // scaffold opted into. Our architecture is one Strapi JWT held in one
+      // httpOnly cookie (DECISIONS.md D-002); refresh-token rotation is a named
+      // limitation, not a feature. `legacy-support` is also the plugin default.
+      jwtManagement: 'legacy-support',
+      jwt: {
+        expiresIn: '7d',
       },
     },
   },
