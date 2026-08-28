@@ -97,7 +97,7 @@ Tracked against `docs/IMPLEMENTATION_CHECKLIST.md`.
 - [x] **Phase 1** — Brand + content types _(data model, four roles, IBM Plex + design tokens)_
 - [x] **Phase 2** — Auth + session _(httpOnly cookie, forced student role, role-aware redirect)_
 - [x] **Phase 3** — Courses, lessons, ownership _(4 enforcement layers, forced owner on create, 409 delete guards)_
-- [ ] **Phase 4** — Enrollment, learning, progress
+- [x] **Phase 4** — Enrollment, learning, progress _(derived progress, batched instructor table, lesson viewer, `progress.test.ts`)_
 - [ ] **Phase 5** — Quiz + server-side grading
 - [ ] **Phase 6** — Admin panel + user blocking
 - [ ] **Phase 7** — Blog, tests, seed

@@ -279,6 +279,27 @@ Stripping gets that; the forced role makes it safe regardless of core behaviour.
 here and the zod schema on the frontend form). They are intentionally close but
 not shared — different runtimes.
 
+### D-031 — Uniqueness enforced via a `dedupeKey` column, not a link-table index
+
+**Decision:** `enrollment` and `lessonCompletion` each carry a server-set
+`dedupeKey` string (`"<userId>:<courseId>"` / `"<userId>:<lessonId>"`, private,
+not configurable) with a `UNIQUE` index added by a hand-written migration.
+
+**Why:** DATA_MODEL.md asks for a DB unique index on `(student, course)` as "the
+actual guarantee". But Strapi 5 stores each relation in its own link table
+(`enrollments_student_lnk`, `enrollments_course_lnk`), so a composite unique
+across the pair is not a table constraint. `schema.json` `unique: true` on a
+scalar *is* honoured — 5.52 just doesn't mirror it to Postgres on its own, hence
+the migration. Verified: a duplicate `dedupeKey` insert raises
+`duplicate key value violates unique constraint`.
+
+**Enforced twice (D-009):** the controller does a read-then-check for a clean
+idempotent response ("you're already enrolled"); the unique index is what holds
+under a double-submit race.
+
+**Tradeoff:** one denormalised column per row, kept in sync by the two
+controllers that write these tables. Small and contained.
+
 ---
 
 ## Known limitations

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCourseBySlug, getCourseByDocumentId } from "@/lib/courses";
 import { getCurrentUser } from "@/lib/session";
+import { isEnrolled } from "@/lib/learning";
+import { EnrollButton } from "@/components/EnrollButton";
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -20,6 +22,8 @@ export default async function CourseDetailPage({ params }: Params) {
 
   const user = await getCurrentUser();
   const lessons = [...course.lessons].sort((a, b) => a.order - b.order);
+  const enrolled =
+    user?.role?.type === "student" ? await isEnrolled(course.documentId) : false;
 
   return (
     <article className="max-w-2xl">
@@ -44,14 +48,21 @@ export default async function CourseDetailPage({ params }: Params) {
           >
             Log in to enrol
           </Link>
-        ) : user.role?.type === "student" ? (
+        ) : user.role?.type !== "student" ? (
+          <span className="text-[13px] text-ink-500">Only students can enrol.</span>
+        ) : enrolled ? (
+          <Link
+            href={`/learn/${course.documentId}`}
+            className="rounded-sm bg-accent-600 px-4 py-2 text-[15px] font-medium text-paper-raised hover:bg-accent-500"
+          >
+            Continue
+          </Link>
+        ) : lessons.length === 0 ? (
           <span className="text-[13px] text-ink-500">
-            Enrolment opens in Phase 4.
+            This course has no lessons yet.
           </span>
         ) : (
-          <span className="text-[13px] text-ink-500">
-            Only students can enrol.
-          </span>
+          <EnrollButton courseId={course.documentId} />
         )}
       </div>
 

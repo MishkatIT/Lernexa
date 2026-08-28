@@ -1,4 +1,9 @@
 import { factories } from '@strapi/strapi';
+import {
+  computeProgress,
+  computeProgressForCourse,
+  nextLessonId,
+} from '../../lesson-completion/services/progress';
 
 const UID = 'api::course.course';
 const MANAGER_ROLES = ['admin', 'content-manager', 'instructor'];
@@ -171,5 +176,150 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
     }
 
     return super.delete(ctx);
+  },
+
+  /**
+   * GET /api/courses/:id/learn — the whole learning context in one round trip
+   * for an enrolled student: the course, its ordered lessons (with content —
+   * this is the one place a student legitimately gets it), which are done, the
+   * derived progress, and the next lesson. Two queries: lessons, completions.
+   */
+  async learn(ctx) {
+    const userId = ctx.state.user.id;
+
+    const course = await strapi.db.query(UID).findOne({
+      where: { documentId: ctx.params.id },
+    });
+    if (!course) return ctx.notFound();
+
+    const enrolled = await strapi.db.query('api::enrollment.enrollment').findOne({
+      where: { dedupeKey: `${userId}:${course.id}` },
+    });
+    if (!enrolled) return ctx.forbidden('You are not enrolled in this course');
+
+    const lessons = (await strapi.db.query('api::lesson.lesson').findMany({
+      where: { course: { id: course.id } },
+      orderBy: { order: 'asc' },
+    })) as Array<{
+      id: number;
+      documentId: string;
+      title: string;
+      order: number;
+      content: string | null;
+      videoUrl: string | null;
+    }>;
+
+    const completions = (await strapi.db
+      .query('api::lesson-completion.lesson-completion')
+      .findMany({
+        where: { student: { id: userId }, course: { id: course.id } },
+        populate: { lesson: true },
+      })) as Array<{ lesson?: { id: number } | null }>;
+
+    const doneIds = new Set(
+      completions
+        .map((c) => c.lesson?.id)
+        .filter((id): id is number => typeof id === 'number'),
+    );
+
+    const orderedForNext = lessons.map((l) => ({ id: l.documentId, order: l.order }));
+
+    ctx.body = {
+      data: {
+        course: {
+          id: course.documentId,
+          title: course.title,
+          slug: course.slug,
+        },
+        lessons: lessons.map((l) => ({
+          id: l.documentId,
+          title: l.title,
+          order: l.order,
+          content: l.content ?? '',
+          videoUrl: l.videoUrl ?? '',
+          completed: doneIds.has(l.id),
+        })),
+        progress: computeProgress(
+          lessons.map((l) => l.id),
+          [...doneIds],
+        ),
+        nextLessonId: nextLessonId(
+          orderedForNext,
+          lessons.filter((l) => doneIds.has(l.id)).map((l) => l.documentId),
+        ),
+      },
+    };
+  },
+
+  /**
+   * GET /api/courses/:id/student-progress — admin / content-manager / owning
+   * instructor. The batched query PERFORMANCE.md #1 is about: three flat
+   * queries (roster, lesson ids, all completions), then O(n) in memory — not
+   * computeProgress in a loop over students.
+   */
+  async studentProgress(ctx) {
+    const course = await strapi.db.query(UID).findOne({
+      where: { documentId: ctx.params.id },
+    });
+    if (!course) return ctx.notFound();
+
+    const roster = (await strapi.db
+      .query('api::enrollment.enrollment')
+      .findMany({
+        where: { course: { id: course.id } },
+        populate: { student: true },
+        orderBy: { enrolledAt: 'asc' },
+      })) as Array<{
+      enrolledAt: string;
+      student?: { id: number; fullName: string | null; username: string } | null;
+    }>;
+
+    const lessons = (await strapi.db
+      .query('api::lesson.lesson')
+      .findMany({ where: { course: { id: course.id } } })) as Array<{ id: number }>;
+
+    const completions = (await strapi.db
+      .query('api::lesson-completion.lesson-completion')
+      .findMany({
+        where: { course: { id: course.id } },
+        populate: { student: true, lesson: true },
+      })) as Array<{
+      completedAt: string;
+      student?: { id: number } | null;
+      lesson?: { id: number } | null;
+    }>;
+
+    const lessonIds = lessons.map((l) => l.id);
+    const progressByStudent = computeProgressForCourse(
+      lessonIds,
+      completions
+        .filter((c) => c.student && c.lesson)
+        .map((c) => ({ studentId: c.student!.id, lessonId: c.lesson!.id })),
+    );
+
+    const lastActivityByStudent = new Map<number, string>();
+    for (const c of completions) {
+      if (!c.student) continue;
+      const prev = lastActivityByStudent.get(c.student.id);
+      if (!prev || c.completedAt > prev) {
+        lastActivityByStudent.set(c.student.id, c.completedAt);
+      }
+    }
+
+    const empty = { completed: 0, total: lessonIds.length, percent: 0 };
+    const data = roster
+      .filter((r) => r.student)
+      .map((r) => ({
+        student: {
+          id: r.student!.id,
+          name: r.student!.fullName ?? r.student!.username,
+        },
+        enrolledAt: r.enrolledAt,
+        lastActivity: lastActivityByStudent.get(r.student!.id) ?? null,
+        progress: progressByStudent.get(String(r.student!.id)) ?? empty,
+      }))
+      .sort((a, b) => a.progress.percent - b.progress.percent); // stuck first
+
+    ctx.body = { data };
   },
 }));

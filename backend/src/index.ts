@@ -43,6 +43,16 @@ const LESSON_ALL = [
 ];
 const COURSE_READ = ['api::course.course.find', 'api::course.course.findOne'];
 
+// Phase 4 — learning + progress.
+const STUDENT_LEARNING = [
+  'api::enrollment.enrollment.enroll',
+  'api::enrollment.enrollment.me',
+  'api::lesson-completion.lesson-completion.complete',
+  'api::lesson-completion.lesson-completion.uncomplete',
+  'api::course.course.learn',
+];
+const STUDENT_PROGRESS_VIEW = ['api::course.course.studentProgress'];
+
 /**
  * RBAC as code — DECISIONS.md D-029. Every guarded action a role may call is
  * listed here and applied idempotently on boot, so local and Railway always
@@ -61,20 +71,27 @@ const ROLE_GRANTS: Record<string, string[]> = {
     ...COURSE_READ,
     ...COURSE_WRITE,
     ...LESSON_ALL,
+    ...STUDENT_PROGRESS_VIEW,
   ],
   'content-manager': [
     'plugin::users-permissions.user.me',
     ...COURSE_READ,
     ...COURSE_WRITE,
     ...LESSON_ALL,
+    ...STUDENT_PROGRESS_VIEW,
   ],
   instructor: [
     'plugin::users-permissions.user.me',
     ...COURSE_READ,
     ...COURSE_WRITE,
     ...LESSON_ALL,
+    ...STUDENT_PROGRESS_VIEW,
   ],
-  student: ['plugin::users-permissions.user.me', ...COURSE_READ],
+  student: [
+    'plugin::users-permissions.user.me',
+    ...COURSE_READ,
+    ...STUDENT_LEARNING,
+  ],
 };
 
 /** Actions granted to the built-in `public` role (anonymous visitors). */

@@ -28,6 +28,12 @@
     },
     "enrolledAt": {
       "type": "datetime"
+    },
+    "dedupeKey": {
+      "type": "string",
+      "unique": true,
+      "private": true,
+      "configurable": false
     }
   }
 }

@@ -67,6 +67,30 @@ export async function getCourseBySlug(slug: string): Promise<CourseLite | null> 
   return res.data[0] ?? null;
 }
 
+export type StudentProgressRow = {
+  student: { id: number; name: string };
+  enrolledAt: string;
+  lastActivity: string | null;
+  progress: { completed: number; total: number; percent: number };
+};
+
+/** Instructor / CM / admin view — the batched 2-query service. Sorted stuck-first
+ *  server-side. */
+export async function getStudentProgress(
+  courseDocumentId: string,
+): Promise<StudentProgressRow[]> {
+  const token = await getToken();
+  try {
+    const res = await strapiFetch<{ data: StudentProgressRow[] }>(
+      `/api/courses/${courseDocumentId}/student-progress`,
+      { token },
+    );
+    return res.data;
+  } catch {
+    return [];
+  }
+}
+
 /** Full lessons for the manager UI. The instructor token + the forced
  *  ownership filter on lesson.find keep this to their own courses. */
 export async function getManagedLessons(
