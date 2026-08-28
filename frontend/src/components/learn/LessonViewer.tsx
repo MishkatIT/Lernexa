@@ -46,19 +46,17 @@ export function LessonViewer({
   }
 
   return (
-    <div className="mx-auto w-full max-w-[68ch] px-6 py-10">
-      <p className="font-mono text-[13px] text-ink-500">Lesson {lesson.order}</p>
-      <h1 className="mt-1 text-[28px] font-semibold leading-tight tracking-tight text-ink-900">
-        {lesson.title}
-      </h1>
+    <div className="mx-auto w-full max-w-[44rem] px-6 py-12 sm:py-16">
+      <p className="font-mono text-small text-ink-500">Lesson {lesson.order}</p>
+      <h1 className="mt-1.5 text-display text-ink-900">{lesson.title}</h1>
 
       {lesson.videoUrl ? (
-        <p className="mt-4">
+        <p className="mt-5">
           <a
             href={lesson.videoUrl}
             target="_blank"
             rel="noreferrer"
-            className="text-accent-600 underline"
+            className="text-body text-accent-600 underline decoration-accent-600/40 underline-offset-2 hover:decoration-accent-600"
           >
             Watch the video ↗
           </a>
@@ -66,21 +64,26 @@ export function LessonViewer({
       ) : null}
 
       {lesson.content ? (
-        <div className="mt-6 whitespace-pre-wrap font-serif text-[18px] leading-[1.7] text-ink-900">
+        <div className="mt-7 whitespace-pre-wrap font-serif text-reading text-ink-900">
           {lesson.content}
         </div>
       ) : (
-        <p className="mt-6 text-[15px] text-ink-500">
+        <p className="mt-7 text-body text-ink-500">
           This lesson has no written content.
         </p>
       )}
 
-      {error ? <p className="mt-4 text-[13px] text-danger">{error}</p> : null}
+      {error ? (
+        <p className="mt-5 text-small text-danger" role="alert">
+          {error}
+        </p>
+      ) : null}
 
-      <div className="mt-10 flex items-center justify-between gap-3 border-t border-ink-200 pt-6">
+      <div className="mt-12 flex items-center justify-between gap-3 border-t border-ink-200 pt-6">
         {prevId ? (
           <Button
             variant="secondary"
+            size="sm"
             onClick={() => router.push(`/learn/${courseId}/${prevId}`)}
           >
             ← Previous
@@ -91,21 +94,24 @@ export function LessonViewer({
 
         <Button
           onClick={toggle}
-          disabled={pending}
+          loading={pending}
+          loadingLabel="Saving…"
           variant={completed ? "secondary" : "primary"}
         >
-          {completed ? "Completed ✓ — Undo" : "Mark complete"}
+          {completed ? "Completed ✓ · Undo" : "Mark complete"}
         </Button>
 
         {nextId ? (
           <Button
             variant="secondary"
+            size="sm"
             onClick={() => router.push(`/learn/${courseId}/${nextId}`)}
           >
             Next →
           </Button>
         ) : quizId ? (
           <Button
+            size="sm"
             onClick={() => router.push(`/learn/${courseId}/quiz/${quizId}`)}
           >
             Take the quiz →
@@ -113,6 +119,7 @@ export function LessonViewer({
         ) : (
           <Button
             variant="ghost"
+            size="sm"
             onClick={() => router.push(`/courses/${courseId}`)}
           >
             Back to course

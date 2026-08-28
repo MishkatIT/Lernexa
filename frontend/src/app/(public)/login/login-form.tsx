@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { loginSchema } from "@/lib/schemas";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Alert } from "@/components/ui/Alert";
 
 export function LoginForm() {
   const router = useRouter();
@@ -55,11 +55,7 @@ export function LoginForm() {
 
   return (
     <form onSubmit={onSubmit} noValidate className="mt-6 flex flex-col gap-4">
-      {formError ? (
-        <p className="border-l-[3px] border-danger bg-accent-100/40 px-3 py-2 text-[13px] text-danger">
-          {formError}
-        </p>
-      ) : null}
+      {formError ? <Alert>{formError}</Alert> : null}
 
       <Input
         label="Email"
@@ -76,16 +72,9 @@ export function LoginForm() {
         error={fieldErrors.password}
       />
 
-      <Button type="submit" disabled={pending}>
-        {pending ? "Logging in…" : "Log in"}
+      <Button type="submit" loading={pending} loadingLabel="Logging in…" className="mt-1">
+        Log in
       </Button>
-
-      <p className="text-[13px] text-ink-500">
-        No account?{" "}
-        <Link href="/register" className="text-accent-600 hover:underline">
-          Create one
-        </Link>
-      </p>
     </form>
   );
 }

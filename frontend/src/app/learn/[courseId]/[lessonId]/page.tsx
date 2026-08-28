@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireRole } from "@/lib/guards";
 import { getLearnContext } from "@/lib/learning";
@@ -30,28 +29,30 @@ export default async function LessonPage({ params }: Params) {
   const next = ctx.lessons[index + 1] ?? null;
 
   return (
-    <div className="flex min-h-full">
-      <aside className="hidden w-[280px] shrink-0 border-r border-ink-200 bg-paper-raised p-5 lg:block">
-        <Link
-          href="/dashboard"
-          className="text-[13px] text-ink-500 hover:text-ink-900"
-        >
-          ← Dashboard
-        </Link>
-        <p className="mt-4 mb-3 text-[15px] font-semibold text-ink-900">
+    <div className="flex min-h-[calc(100vh-3.5rem)]">
+      <aside
+        data-surface
+        className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-[280px] shrink-0 overflow-y-auto border-r border-ink-200 bg-paper-raised p-5 lg:block"
+      >
+        <p className="text-small font-medium uppercase tracking-[0.12em] text-ink-500">
           {ctx.course.title}
         </p>
-        <ProgressTrack
-          courseId={courseId}
-          lessons={ctx.lessons}
-          currentLessonId={lesson.id}
-        />
+        <div className="mt-4">
+          <ProgressTrack
+            courseId={courseId}
+            lessons={ctx.lessons}
+            currentLessonId={lesson.id}
+          />
+        </div>
       </aside>
 
       <div className="min-w-0 flex-1">
         {/* Mobile: the track collapses to a compact strip above the content. */}
-        <div className="border-b border-ink-200 bg-paper-raised px-6 py-3 lg:hidden">
-          <p className="font-mono text-[13px] text-ink-500">
+        <div
+          data-surface
+          className="border-b border-ink-200 bg-paper-raised px-6 py-3 lg:hidden"
+        >
+          <p className="font-mono text-small text-ink-500">
             {ctx.course.title} · Lesson {index + 1} of {ctx.lessons.length} ·{" "}
             {ctx.progress.percent}% complete
           </p>
@@ -59,7 +60,7 @@ export default async function LessonPage({ params }: Params) {
             {ctx.lessons.map((l) => (
               <span
                 key={l.id}
-                className={`h-1.5 flex-1 rounded-sm ${
+                className={`h-1.5 flex-1 rounded-full ${
                   l.completed
                     ? "bg-success"
                     : l.id === lesson.id

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+import { BrandMark } from "@/components/Brand";
+import { Button } from "@/components/ui/Button";
 
 export default function Error({
   error,
@@ -14,20 +16,16 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="mx-auto flex max-w-md flex-col items-center px-6 py-20 text-center">
-      <h1 className="text-2xl font-semibold tracking-tight text-ink-900">
-        Something went wrong
-      </h1>
-      <p className="mt-2 text-[15px] text-ink-700">
-        The page hit an error. Try again — if it keeps happening, the API may be
-        down.
+    <div className="flex min-h-[70vh] flex-col items-center justify-center px-6 text-center">
+      <BrandMark className="text-ink-500" />
+      <h1 className="mt-6 text-h1 text-ink-900">Something went wrong</h1>
+      <p className="mt-2 max-w-sm text-body text-ink-700">
+        We couldn&apos;t load this page. Try again — if it keeps happening, the
+        API may be unavailable.
       </p>
-      <button
-        onClick={reset}
-        className="mt-6 rounded-sm bg-accent-600 px-4 py-2 text-[15px] font-medium text-paper-raised hover:bg-accent-500"
-      >
+      <Button onClick={reset} className="mt-6">
         Try again
-      </button>
+      </Button>
     </div>
   );
 }

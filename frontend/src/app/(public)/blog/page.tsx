@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { listPublishedPosts } from "@/lib/blog";
+import { Container } from "@/components/ui/Container";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export const metadata: Metadata = { title: "Blog" };
 
@@ -8,30 +11,47 @@ export default async function BlogListPage() {
   const posts = await listPublishedPosts();
 
   return (
-    <div className="max-w-2xl">
-      <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Blog</h1>
+    <Container size="content" className="py-10 sm:py-14">
+      <SectionHeader
+        as="h1"
+        eyebrow="Writing"
+        title="Blog"
+        description="Notes on learning, progress, and how Lernexa is built."
+      />
+
       {posts.length === 0 ? (
-        <p className="mt-6 text-[15px] text-ink-500">No posts yet.</p>
+        <div className="mt-10">
+          <EmptyState
+            title="Nothing published yet"
+            description="Posts will appear here as they're written."
+          />
+        </div>
       ) : (
-        <ul className="mt-6 flex flex-col gap-5">
+        <ul className="mt-8 divide-y divide-ink-200 border-y border-ink-200">
           {posts.map((p) => (
             <li key={p.documentId}>
               <Link
                 href={`/blog/${p.slug ?? p.documentId}`}
-                className="block rounded-sm border border-ink-200 bg-paper-raised p-5 hover:border-ink-500"
+                className="group flex flex-col gap-1.5 py-6 transition-colors"
               >
-                <h2 className="text-[17px] font-semibold text-ink-900">{p.title}</h2>
-                <p className="mt-1 text-[13px] text-ink-500">
+                <p className="text-small text-ink-500">
                   {p.author?.fullName ? `${p.author.fullName} · ` : ""}
                   {p.publishedAt
-                    ? new Date(p.publishedAt).toLocaleDateString()
+                    ? new Date(p.publishedAt).toLocaleDateString(undefined, {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })
                     : ""}
                 </p>
+                <h2 className="text-h2 text-ink-900 transition-colors group-hover:text-accent-600">
+                  {p.title}
+                </h2>
               </Link>
             </li>
           ))}
         </ul>
       )}
-    </div>
+    </Container>
   );
 }

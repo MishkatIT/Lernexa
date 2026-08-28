@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { registerSchema } from "@/lib/schemas";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Alert } from "@/components/ui/Alert";
 
 export function RegisterForm() {
   const router = useRouter();
@@ -56,11 +56,7 @@ export function RegisterForm() {
 
   return (
     <form onSubmit={onSubmit} noValidate className="mt-6 flex flex-col gap-4">
-      {formError ? (
-        <p className="border-l-[3px] border-danger bg-accent-100/40 px-3 py-2 text-[13px] text-danger">
-          {formError}
-        </p>
-      ) : null}
+      {formError ? <Alert>{formError}</Alert> : null}
 
       <Input label="Full name" name="fullName" autoComplete="name" error={fieldErrors.fullName} />
       <Input
@@ -85,16 +81,14 @@ export function RegisterForm() {
         error={fieldErrors.confirmPassword}
       />
 
-      <Button type="submit" disabled={pending}>
-        {pending ? "Creating…" : "Create account"}
+      <Button
+        type="submit"
+        loading={pending}
+        loadingLabel="Creating…"
+        className="mt-1"
+      >
+        Create account
       </Button>
-
-      <p className="text-[13px] text-ink-500">
-        Already have an account?{" "}
-        <Link href="/login" className="text-accent-600 hover:underline">
-          Log in
-        </Link>
-      </p>
     </form>
   );
 }

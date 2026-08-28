@@ -1,52 +1,53 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { listCatalogue } from "@/lib/courses";
+import { getCurrentUser } from "@/lib/session";
+import { getMyEnrollments } from "@/lib/learning";
+import { Container } from "@/components/ui/Container";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { CourseCard } from "@/components/ui/CourseCard";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export const metadata: Metadata = { title: "Courses" };
 
 export default async function CataloguePage() {
-  const courses = await listCatalogue();
+  const [courses, user] = await Promise.all([listCatalogue(), getCurrentUser()]);
+  const enrollments =
+    user?.role?.type === "student" ? await getMyEnrollments() : [];
+  const progressByCourse = new Map(
+    enrollments.map((e) => [e.course.id, e.progress]),
+  );
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Courses</h1>
-      <p className="mt-1 text-[15px] text-ink-500">
-        {courses.length} course{courses.length === 1 ? "" : "s"} available.
-      </p>
+    <Container className="py-10 sm:py-14">
+      <SectionHeader
+        as="h1"
+        eyebrow="Catalogue"
+        title="Courses"
+        description="Every course is a sequence. Enrol, and your place is kept."
+      />
 
       {courses.length === 0 ? (
-        <p className="mt-8 text-[15px] text-ink-500">
-          No courses are published yet. Check back soon.
-        </p>
+        <div className="mt-10">
+          <EmptyState
+            title="No courses published yet"
+            description="Courses appear here once they have at least one lesson. Check back soon."
+          />
+        </div>
       ) : (
-        <ul className="mt-6 grid gap-4 sm:grid-cols-2">
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {courses.map((c) => (
-            <li key={c.documentId}>
-              <Link
-                href={`/courses/${c.slug ?? c.documentId}`}
-                className="flex h-full flex-col rounded-sm border border-ink-200 bg-paper-raised p-5 hover:border-ink-500"
-              >
-                <span className="text-[16px] font-semibold text-ink-900">
-                  {c.title}
-                </span>
-                {c.instructor?.fullName ? (
-                  <span className="mt-0.5 text-[13px] text-ink-500">
-                    {c.instructor.fullName}
-                  </span>
-                ) : null}
-                {c.description ? (
-                  <span className="mt-2 line-clamp-3 text-[14px] text-ink-700">
-                    {c.description}
-                  </span>
-                ) : null}
-                <span className="mt-3 text-[13px] text-ink-500">
-                  {c.lessons.length} lesson{c.lessons.length === 1 ? "" : "s"}
-                </span>
-              </Link>
-            </li>
+            <CourseCard
+              key={c.documentId}
+              href={`/courses/${c.slug ?? c.documentId}`}
+              title={c.title}
+              instructor={c.instructor?.fullName}
+              description={c.description}
+              lessons={c.lessons.length}
+              progress={progressByCourse.get(c.documentId) ?? null}
+            />
           ))}
-        </ul>
+        </div>
       )}
-    </div>
+    </Container>
   );
 }

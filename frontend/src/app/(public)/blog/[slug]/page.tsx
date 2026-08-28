@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPublishedPost } from "@/lib/blog";
+import { Container } from "@/components/ui/Container";
 
 type Params = { params: Promise<{ slug: string }> };
+
+const readingTime = (body: string | null) =>
+  Math.max(1, Math.round((body?.split(/\s+/).length ?? 0) / 200));
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const post = await getPublishedPost((await params).slug);
@@ -14,19 +19,33 @@ export default async function BlogPostPage({ params }: Params) {
   if (!post) notFound();
 
   return (
-    <article className="mx-auto max-w-[68ch]">
-      <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-ink-900">
-        {post.title}
-      </h1>
-      <p className="mt-2 text-[13px] text-ink-500">
-        {post.author?.fullName ? `${post.author.fullName} · ` : ""}
-        {post.publishedAt
-          ? new Date(post.publishedAt).toLocaleDateString()
-          : ""}
-      </p>
-      <div className="mt-6 whitespace-pre-wrap font-serif text-[18px] leading-[1.7] text-ink-900">
-        {post.body}
-      </div>
-    </article>
+    <Container size="reading" className="py-10 sm:py-16">
+      <Link
+        href="/blog"
+        className="text-small text-ink-500 transition-colors hover:text-ink-900"
+      >
+        ← Blog
+      </Link>
+
+      <article className="mt-6">
+        <h1 className="text-display text-ink-900">{post.title}</h1>
+        <p className="mt-3 text-small text-ink-500">
+          {post.author?.fullName ? `${post.author.fullName} · ` : ""}
+          {post.publishedAt
+            ? new Date(post.publishedAt).toLocaleDateString(undefined, {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })
+            : ""}
+          {" · "}
+          {readingTime(post.body)} min read
+        </p>
+
+        <div className="mt-8 whitespace-pre-wrap font-serif text-reading text-ink-900">
+          {post.body}
+        </div>
+      </article>
+    </Container>
   );
 }
