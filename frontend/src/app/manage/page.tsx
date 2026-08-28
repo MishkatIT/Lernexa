@@ -1,25 +1,28 @@
 import type { Metadata } from "next";
-import { requireRole } from "@/lib/guards";
-import { ROLE_LABELS, type RoleType } from "@/lib/roles";
-import { LogoutButton } from "@/components/LogoutButton";
+import Link from "next/link";
+import { getCurrentUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Manage" };
 
-export default async function ManagePage() {
-  const user = await requireRole("instructor", "content-manager");
+export default async function ManageOverviewPage() {
+  const user = await getCurrentUser();
+  const isInstructor = user?.role?.type === "instructor";
 
   return (
-    <div className="mx-auto max-w-[1200px] px-6 py-10">
-      <h1 className="text-2xl font-semibold tracking-tight text-ink-900">
-        Manage
-      </h1>
+    <div className="max-w-2xl">
+      <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Manage</h1>
       <p className="mt-1 text-[15px] text-ink-500">
-        Signed in as {user.fullName ?? user.username} —{" "}
-        {ROLE_LABELS[user.role?.type as RoleType]}. Course, lesson and quiz
-        management arrives in Phase 3.
+        {isInstructor
+          ? "Your courses and their lessons."
+          : "All courses, lessons and quizzes across the platform."}
       </p>
       <div className="mt-6">
-        <LogoutButton />
+        <Link
+          href="/manage/courses"
+          className="rounded-sm bg-accent-600 px-4 py-2 text-[15px] font-medium text-paper-raised hover:bg-accent-500"
+        >
+          Go to courses
+        </Link>
       </div>
     </div>
   );

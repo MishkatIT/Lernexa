@@ -96,7 +96,7 @@ Tracked against `docs/IMPLEMENTATION_CHECKLIST.md`.
 - [x] **Phase 0** — Monorepo + deploy skeleton _(both apps live on Railway + Vercel)_
 - [x] **Phase 1** — Brand + content types _(data model, four roles, IBM Plex + design tokens)_
 - [x] **Phase 2** — Auth + session _(httpOnly cookie, forced student role, role-aware redirect)_
-- [ ] **Phase 3** — Courses, lessons, ownership
+- [x] **Phase 3** — Courses, lessons, ownership _(4 enforcement layers, forced owner on create, 409 delete guards)_
 - [ ] **Phase 4** — Enrollment, learning, progress
 - [ ] **Phase 5** — Quiz + server-side grading
 - [ ] **Phase 6** — Admin panel + user blocking

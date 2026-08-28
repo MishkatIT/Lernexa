@@ -29,7 +29,7 @@ type StrapiFetchOptions = Omit<RequestInit, "headers"> & {
 
 export async function strapiFetch<T = unknown>(
   path: string,
-  { token, headers, ...init }: StrapiFetchOptions = {},
+  { token, headers, cache, ...init }: StrapiFetchOptions = {},
 ): Promise<T> {
   if (!BASE) throw new Error("STRAPI_URL is not set");
 
@@ -40,9 +40,10 @@ export async function strapiFetch<T = unknown>(
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
-    // Never cache: every call here is either an auth exchange or user-scoped.
-    // Public, cacheable reads get their own wrappers in later phases.
-    cache: "no-store",
+    // Default: never cache — auth exchanges and user-scoped reads. A caller
+    // fetching genuinely public data (the course catalogue) may opt into
+    // caching explicitly.
+    cache: cache ?? "no-store",
   });
 
   const body = await res.json().catch(() => null);
