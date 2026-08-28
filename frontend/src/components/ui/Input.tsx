@@ -1,9 +1,9 @@
 "use client";
 
 import { useId } from "react";
-import type { InputHTMLAttributes } from "react";
+import type { ComponentPropsWithRef } from "react";
 
-type Props = InputHTMLAttributes<HTMLInputElement> & {
+type Props = ComponentPropsWithRef<"input"> & {
   label: string;
   error?: string;
 };
@@ -17,12 +17,12 @@ export function Input({ label, error, id, className = "", ...props }: Props) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={inputId} className="text-[13px] font-medium text-ink-700">
+      <label htmlFor={inputId} className="text-small font-medium text-ink-700">
         {label}
       </label>
       <input
         id={inputId}
-        className={`h-10 rounded-sm border bg-paper-raised px-3 text-[15px] text-ink-900 outline-none focus:ring-2 focus:ring-accent-500 ${
+        className={`h-10 rounded-md border bg-paper-raised px-3 text-body text-ink-900 outline-none focus:ring-2 focus:ring-accent-500 ${
           error ? "border-danger" : "border-ink-200"
         } ${className}`}
         aria-invalid={error ? "true" : undefined}
@@ -30,7 +30,7 @@ export function Input({ label, error, id, className = "", ...props }: Props) {
         {...props}
       />
       {error ? (
-        <p id={errorId} className="text-[13px] text-danger">
+        <p id={errorId} className="text-small text-danger">
           {error}
         </p>
       ) : null}

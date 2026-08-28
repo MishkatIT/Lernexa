@@ -8,14 +8,31 @@ import { listManagedPosts } from "./blog";
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type InstructorSnapshot = {
-  stuckStudents: { name: string; course: string; courseId: string }[];
+  totals: {
+    courses: number;
+    students: number;
+    lessons: number;
+    avgPercent: number;
+  };
+  stuckStudents: {
+    name: string;
+    course: string;
+    courseId: string;
+    enrolledAt: string;
+  }[];
   strugglingCourses: {
     id: string;
     title: string;
     enrolled: number;
     avgPercent: number;
   }[];
-  courses: { id: string; title: string; enrolled: number; lessons: number }[];
+  courses: {
+    id: string;
+    title: string;
+    enrolled: number;
+    lessons: number;
+    avgPercent: number;
+  }[];
 };
 
 /** Instructor home — "which students are stuck?". Exceptions, not totals. */
@@ -35,16 +52,30 @@ export async function getInstructorSnapshot(
   const stuckStudents: InstructorSnapshot["stuckStudents"] = [];
   const strugglingCourses: InstructorSnapshot["strugglingCourses"] = [];
   const courseList: InstructorSnapshot["courses"] = [];
+  const studentIds = new Set<number>();
+  let percentSum = 0;
+  let rowCount = 0;
 
   for (const { course, rows } of perCourse) {
+    const avg =
+      rows.length > 0
+        ? Math.round(
+            rows.reduce((s, r) => s + r.progress.percent, 0) / rows.length,
+          )
+        : 0;
+
     courseList.push({
       id: course.documentId,
       title: course.title,
       enrolled: rows.length,
       lessons: course.lessons.length,
+      avgPercent: avg,
     });
 
     for (const r of rows) {
+      studentIds.add(r.student.id);
+      percentSum += r.progress.percent;
+      rowCount += 1;
       if (
         r.progress.percent === 0 &&
         new Date(r.enrolledAt).getTime() < cutoff
@@ -53,32 +84,50 @@ export async function getInstructorSnapshot(
           name: r.student.name,
           course: course.title,
           courseId: course.documentId,
+          enrolledAt: r.enrolledAt,
         });
       }
     }
 
-    if (rows.length > 0) {
-      const avg = Math.round(
-        rows.reduce((s, r) => s + r.progress.percent, 0) / rows.length,
-      );
-      if (avg < 30) {
-        strugglingCourses.push({
-          id: course.documentId,
-          title: course.title,
-          enrolled: rows.length,
-          avgPercent: avg,
-        });
-      }
+    if (rows.length > 0 && avg < 30) {
+      strugglingCourses.push({
+        id: course.documentId,
+        title: course.title,
+        enrolled: rows.length,
+        avgPercent: avg,
+      });
     }
   }
 
-  return { stuckStudents, strugglingCourses, courses: courseList };
+  return {
+    totals: {
+      courses: courses.length,
+      students: studentIds.size,
+      lessons: courseList.reduce((s, c) => s + c.lessons, 0),
+      avgPercent: rowCount > 0 ? Math.round(percentSum / rowCount) : 0,
+    },
+    stuckStudents,
+    strugglingCourses,
+    courses: courseList,
+  };
 }
 
 export type Worklist = {
+  totals: {
+    courses: number;
+    lessons: number;
+    published: number;
+    drafts: number;
+  };
   noLessons: { id: string; title: string }[];
   noQuiz: { id: string; title: string }[];
   staleDrafts: { id: string; title: string }[];
+  recentPosts: {
+    id: string;
+    title: string;
+    published: boolean;
+    createdAt: string | null;
+  }[];
 };
 
 /** Content-manager / admin home — "what content needs work?". */
@@ -102,6 +151,12 @@ export async function getWorklist(): Promise<Worklist> {
   );
 
   return {
+    totals: {
+      courses: courses.length,
+      lessons: courses.reduce((s, c) => s + c.lessons.length, 0),
+      published: posts.filter((p) => p.publishedAt).length,
+      drafts: posts.filter((p) => !p.publishedAt).length,
+    },
     noLessons: courses
       .filter((c) => c.lessons.length === 0)
       .map((c) => ({ id: c.documentId, title: c.title })),
@@ -116,5 +171,18 @@ export async function getWorklist(): Promise<Worklist> {
           new Date(p.createdAt).getTime() < cutoff,
       )
       .map((p) => ({ id: p.documentId, title: p.title })),
+    recentPosts: [...posts]
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt ?? 0).getTime() -
+          new Date(a.createdAt ?? 0).getTime(),
+      )
+      .slice(0, 5)
+      .map((p) => ({
+        id: p.documentId,
+        title: p.title,
+        published: Boolean(p.publishedAt),
+        createdAt: p.createdAt,
+      })),
   };
 }

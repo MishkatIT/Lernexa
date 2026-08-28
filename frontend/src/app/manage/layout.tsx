@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { requireRole } from "@/lib/guards";
-import { ROLE_LABELS, type RoleType } from "@/lib/roles";
+import { ROLE_LABELS, dashboardPathFor, type RoleType } from "@/lib/roles";
 import { AppShell, type NavItem } from "@/components/site/AppShell";
 
 export default async function ManageLayout({ children }: { children: ReactNode }) {
@@ -20,7 +20,10 @@ export default async function ManageLayout({ children }: { children: ReactNode }
       nav={nav}
       user={{
         name: user.fullName ?? user.username,
+        email: user.email,
+        avatarUrl: user.avatarUrl,
         roleLabel: ROLE_LABELS[user.role?.type as RoleType] ?? "",
+        dashboardPath: dashboardPathFor(user.role?.type),
       }}
     >
       {children}

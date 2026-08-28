@@ -86,6 +86,22 @@ export async function listPlatformUsers(params: {
   };
 }
 
+/** Most-recently-blocked users for the admin attention queue. */
+export async function getRecentlyBlocked(limit = 5): Promise<PlatformUser[]> {
+  try {
+    const { users } = await listPlatformUsers({ status: "blocked" });
+    return [...users]
+      .sort(
+        (a, b) =>
+          new Date(b.blockedAt ?? 0).getTime() -
+          new Date(a.blockedAt ?? 0).getTime(),
+      )
+      .slice(0, limit);
+  } catch {
+    return [];
+  }
+}
+
 export type SiteSettings = { siteName: string; registrationEnabled: boolean };
 
 export async function getSiteSettings(): Promise<SiteSettings> {

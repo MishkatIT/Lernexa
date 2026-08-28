@@ -5,40 +5,40 @@ import { useRouter } from "next/navigation";
 import { updateSiteSettings } from "@/actions/admin";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Alert } from "@/components/ui/Alert";
+import { useToast } from "@/components/ui/Toast";
 import type { SiteSettings } from "@/lib/admin";
 
 export function SettingsForm({ initial }: { initial: SiteSettings }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [siteName, setSiteName] = useState(initial.siteName);
   const [registrationEnabled, setRegistrationEnabled] = useState(
     initial.registrationEnabled,
   );
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const dirty =
+    siteName !== initial.siteName ||
+    registrationEnabled !== initial.registrationEnabled;
 
   async function save() {
     setBusy(true);
     setError(null);
-    setMsg(null);
     const res = await updateSiteSettings({ siteName, registrationEnabled });
     setBusy(false);
     if (!res.ok) {
       setError(res.error);
       return;
     }
-    setMsg("Saved.");
+    toast("Settings saved");
     router.refresh();
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      {error ? (
-        <p className="border-l-[3px] border-danger bg-accent-100/40 px-3 py-2 text-[13px] text-danger">
-          {error}
-        </p>
-      ) : null}
-      {msg ? <p className="text-[13px] text-success">{msg}</p> : null}
+    <div className="flex flex-col gap-5">
+      {error ? <Alert>{error}</Alert> : null}
 
       <Input
         label="Site name"
@@ -46,18 +46,24 @@ export function SettingsForm({ initial }: { initial: SiteSettings }) {
         onChange={(e) => setSiteName(e.target.value)}
       />
 
-      <label className="flex items-center gap-2 text-[14px] text-ink-900">
+      <label className="flex items-start gap-3 text-body text-ink-900">
         <input
           type="checkbox"
           checked={registrationEnabled}
           onChange={(e) => setRegistrationEnabled(e.target.checked)}
+          className="mt-1 h-4 w-4 accent-accent-600"
         />
-        Allow public registration
+        <span>
+          Allow public registration
+          <span className="mt-0.5 block text-small text-ink-500">
+            When off, the register endpoint returns 403 for everyone.
+          </span>
+        </span>
       </label>
 
       <div>
-        <Button onClick={save} disabled={busy}>
-          {busy ? "Saving…" : "Save settings"}
+        <Button onClick={save} loading={busy} loadingLabel="Saving…" disabled={!dirty}>
+          Save settings
         </Button>
       </div>
     </div>

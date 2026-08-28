@@ -11,6 +11,8 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
+import { Alert } from "@/components/ui/Alert";
+import { useToast } from "@/components/ui/Toast";
 
 export type ManagedLesson = {
   documentId: string;
@@ -37,6 +39,7 @@ export function LessonManager({
   lessons: ManagedLesson[];
 }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [editing, setEditing] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -60,6 +63,7 @@ export function LessonManager({
       setError(res.error);
       return;
     }
+    toast(docId ? "Lesson saved" : "Lesson added");
     setEditing(null);
     setAdding(false);
     router.refresh();
@@ -74,19 +78,16 @@ export function LessonManager({
       setError(res.error);
       return;
     }
+    toast("Lesson deleted");
     router.refresh();
   }
 
   return (
     <div className="flex flex-col gap-3">
-      {error ? (
-        <p className="border-l-[3px] border-danger bg-accent-100/40 px-3 py-2 text-[13px] text-danger">
-          {error}
-        </p>
-      ) : null}
+      {error ? <Alert>{error}</Alert> : null}
 
       {lessons.length === 0 && !adding ? (
-        <p className="text-[15px] text-ink-500">
+        <p className="text-body text-ink-500">
           No lessons yet. A course with no lessons stays out of the public
           catalogue.
         </p>
@@ -95,7 +96,7 @@ export function LessonManager({
       <ol className="flex flex-col gap-2">
         {lessons.map((lesson) =>
           editing === lesson.documentId ? (
-            <li key={lesson.documentId} className="rounded-sm border border-ink-200 p-4">
+            <li key={lesson.documentId} className="rounded-md border border-ink-200 p-4">
               <LessonFields
                 initial={{
                   title: lesson.title,
@@ -112,17 +113,20 @@ export function LessonManager({
           ) : (
             <li
               key={lesson.documentId}
-              className="flex items-center justify-between rounded-sm border border-ink-200 bg-paper-raised px-4 py-3"
+              className="flex items-center justify-between gap-3 rounded-md border border-ink-200 bg-paper-raised px-4 py-3"
             >
-              <span className="flex items-center gap-3">
-                <span className="font-mono text-[13px] text-ink-500">
+              <span className="flex min-w-0 items-center gap-3">
+                <span className="font-mono text-small text-ink-500">
                   {String(lesson.order).padStart(2, "0")}
                 </span>
-                <span className="text-[15px] text-ink-900">{lesson.title}</span>
+                <span className="truncate text-body text-ink-900">
+                  {lesson.title}
+                </span>
               </span>
-              <span className="flex gap-2">
+              <span className="flex shrink-0 gap-1">
                 <Button
                   variant="ghost"
+                  size="sm"
                   onClick={() => setEditing(lesson.documentId)}
                   disabled={busy}
                 >
@@ -130,6 +134,7 @@ export function LessonManager({
                 </Button>
                 <Button
                   variant="ghost"
+                  size="sm"
                   onClick={() => remove(lesson.documentId)}
                   disabled={busy}
                 >
@@ -142,7 +147,7 @@ export function LessonManager({
       </ol>
 
       {adding ? (
-        <div className="rounded-sm border border-ink-200 p-4">
+        <div className="rounded-md border border-ink-200 p-4">
           <LessonFields
             initial={emptyDraft(nextOrder)}
             busy={busy}

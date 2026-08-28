@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { requireRole } from "@/lib/guards";
+import { dashboardPathFor } from "@/lib/roles";
 import { AppShell, type NavItem } from "@/components/site/AppShell";
 
 const NAV: NavItem[] = [
@@ -14,7 +15,13 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   return (
     <AppShell
       nav={NAV}
-      user={{ name: user.fullName ?? user.username, roleLabel: "Admin" }}
+      user={{
+        name: user.fullName ?? user.username,
+        email: user.email,
+        avatarUrl: user.avatarUrl,
+        roleLabel: "Admin",
+        dashboardPath: dashboardPathFor(user.role?.type),
+      }}
     >
       {children}
     </AppShell>

@@ -18,7 +18,7 @@ export function ProgressTrack({
 
   return (
     <nav aria-label="Lessons" className="flex flex-col gap-1">
-      <p className="mb-2 font-mono text-[13px] text-ink-500">
+      <p className="mb-2 font-mono text-small text-ink-500">
         {done}/{lessons.length} complete
       </p>
       {lessons.map((lesson) => {
@@ -28,7 +28,7 @@ export function ProgressTrack({
             key={lesson.id}
             href={`/learn/${courseId}/${lesson.id}`}
             aria-current={current ? "page" : undefined}
-            className={`flex items-center gap-2.5 rounded-sm px-2 py-1.5 text-[14px] ${
+            className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 text-body ${
               current
                 ? "bg-ink-100 font-medium text-ink-900"
                 : "text-ink-700 hover:bg-ink-100"
@@ -38,7 +38,7 @@ export function ProgressTrack({
               aria-hidden
               className={`grid h-4 w-4 shrink-0 place-items-center rounded-full border text-[10px] ${
                 lesson.completed
-                  ? "border-success bg-success text-paper-raised"
+                  ? "border-success bg-success text-on-accent"
                   : current
                     ? "border-accent-500"
                     : "border-ink-200"

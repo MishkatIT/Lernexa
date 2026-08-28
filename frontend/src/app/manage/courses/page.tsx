@@ -2,60 +2,122 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/session";
 import { listManagedCourses } from "@/lib/courses";
+import { getCourseIdsWithQuiz } from "@/lib/quiz";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ButtonLink } from "@/components/ui/Button";
 
 export const metadata: Metadata = { title: "Courses" };
 
-export default async function ManageCoursesPage() {
+type Filter = "needs-lessons" | "needs-quiz" | undefined;
+
+export default async function ManageCoursesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ filter?: string }>;
+}) {
+  const filter = (await searchParams).filter as Filter;
   const user = await getCurrentUser();
   const scopeToSelf = user?.role?.type === "instructor";
-  const courses = await listManagedCourses(scopeToSelf ? user!.id : undefined);
+  const [courses, quizCourseIds] = await Promise.all([
+    listManagedCourses(scopeToSelf ? user!.id : undefined),
+    getCourseIdsWithQuiz(),
+  ]);
+
+  const decorated = courses.map((c) => ({
+    ...c,
+    noLessons: c.lessons.length === 0,
+    noQuiz: !quizCourseIds.has(c.documentId),
+  }));
+
+  const visible =
+    filter === "needs-lessons"
+      ? decorated.filter((c) => c.noLessons)
+      : filter === "needs-quiz"
+        ? decorated.filter((c) => c.noQuiz)
+        : decorated;
+
+  const filterLabel =
+    filter === "needs-lessons"
+      ? "Courses with no lessons"
+      : filter === "needs-quiz"
+        ? "Courses with no quiz"
+        : null;
 
   return (
-    <div className="max-w-3xl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink-900">
-            {scopeToSelf ? "Your courses" : "All courses"}
-          </h1>
-          <p className="mt-1 text-[15px] text-ink-500">
-            {courses.length} course{courses.length === 1 ? "" : "s"}.
-          </p>
-        </div>
-        <Link
-          href="/manage/courses/new"
-          className="rounded-sm bg-accent-600 px-4 py-2 text-[15px] font-medium text-paper-raised hover:bg-accent-500"
-        >
-          New course
-        </Link>
-      </div>
+    <div className="mx-auto max-w-4xl">
+      <SectionHeader
+        as="h1"
+        eyebrow="Content"
+        title={scopeToSelf ? "Your courses" : "All courses"}
+        description={
+          filterLabel
+            ? `Filtered: ${filterLabel.toLowerCase()}.`
+            : `${courses.length} course${courses.length === 1 ? "" : "s"}.`
+        }
+        action={
+          <ButtonLink href="/manage/courses/new" size="sm">
+            New course
+          </ButtonLink>
+        }
+      />
 
-      {courses.length === 0 ? (
-        <p className="mt-8 text-[15px] text-ink-500">
-          Nothing here yet. Create your first course — you&apos;ll add lessons to
-          it next.
+      {filterLabel ? (
+        <p className="mt-4 text-small">
+          <Link href="/manage/courses" className="text-accent-600 hover:underline">
+            ← Show all courses
+          </Link>
         </p>
+      ) : null}
+
+      {visible.length === 0 ? (
+        <div className="mt-8">
+          <EmptyState
+            title={filterLabel ? "Nothing matches this filter" : "No courses yet"}
+            description={
+              filterLabel
+                ? "Every course in scope is in good shape."
+                : "Create your first course — you'll add lessons to it next."
+            }
+            action={
+              filterLabel
+                ? undefined
+                : { label: "New course", href: "/manage/courses/new" }
+            }
+          />
+        </div>
       ) : (
         <ul className="mt-6 flex flex-col gap-2">
-          {courses.map((c) => (
+          {visible.map((c) => (
             <li key={c.documentId}>
-              <Link
+              <Card
+                as={Link}
                 href={`/manage/courses/${c.documentId}`}
-                className="flex items-center justify-between rounded-sm border border-ink-200 bg-paper-raised px-4 py-3 hover:bg-ink-100"
+                interactive
+                className="flex items-center justify-between gap-3 px-4 py-3"
               >
-                <span>
-                  <span className="text-[15px] font-medium text-ink-900">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="truncate text-body font-medium text-ink-900">
                     {c.title}
                   </span>
                   {!scopeToSelf && c.instructor?.fullName ? (
-                    <span className="ml-2 text-[13px] text-ink-500">
+                    <span className="shrink-0 text-small text-ink-500">
                       {c.instructor.fullName}
                     </span>
                   ) : null}
                 </span>
-                <span className="text-[13px] text-ink-500">
-                  {c.lessons.length} lesson{c.lessons.length === 1 ? "" : "s"}
+                <span className="flex shrink-0 items-center gap-2">
+                  {c.noLessons ? <Badge tone="warning">No lessons</Badge> : null}
+                  {!c.noLessons && c.noQuiz ? (
+                    <Badge tone="neutral">No quiz</Badge>
+                  ) : null}
+                  <span className="font-mono text-small text-ink-500">
+                    {c.lessons.length} lesson{c.lessons.length === 1 ? "" : "s"}
+                  </span>
                 </span>
-              </Link>
+              </Card>
             </li>
           ))}
         </ul>

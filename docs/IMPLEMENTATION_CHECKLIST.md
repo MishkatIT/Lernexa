@@ -65,7 +65,7 @@ Bad: `update`, `fixes`, `wip`, `final2`.
 - [ ] `icon.svg` (three-bar mark), `apple-icon.png`, root metadata with title template
 - [ ] Content types: Course, Lesson, Enrollment, LessonCompletion, Quiz, QuizAttempt, BlogPost
 - [ ] Components `quiz.question`, `quiz.option`
-- [ ] User extensions: `fullName`, `blockedReason`, `blockedAt`, `blockedBy`
+- [ ] User extensions: `fullName`, `avatarUrl`, `blockedReason`, `blockedAt`, `blockedBy`
 - [ ] Draft & Publish on BlogPost only
 - [ ] `bootstrap()` creates the four roles
 - [ ] **Deny by default** — zero permissions on all four roles

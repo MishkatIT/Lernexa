@@ -1,9 +1,9 @@
 "use client";
 
 import { useId } from "react";
-import type { TextareaHTMLAttributes } from "react";
+import type { ComponentPropsWithRef } from "react";
 
-type Props = TextareaHTMLAttributes<HTMLTextAreaElement> & {
+type Props = ComponentPropsWithRef<"textarea"> & {
   label: string;
   error?: string;
 };
@@ -15,12 +15,12 @@ export function Textarea({ label, error, id, className = "", ...props }: Props) 
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={fieldId} className="text-[13px] font-medium text-ink-700">
+      <label htmlFor={fieldId} className="text-small font-medium text-ink-700">
         {label}
       </label>
       <textarea
         id={fieldId}
-        className={`min-h-24 rounded-sm border bg-paper-raised px-3 py-2 text-[15px] text-ink-900 outline-none focus:ring-2 focus:ring-accent-500 ${
+        className={`min-h-24 rounded-md border bg-paper-raised px-3 py-2 text-body text-ink-900 outline-none focus:ring-2 focus:ring-accent-500 ${
           error ? "border-danger" : "border-ink-200"
         } ${className}`}
         aria-invalid={error ? "true" : undefined}
@@ -28,7 +28,7 @@ export function Textarea({ label, error, id, className = "", ...props }: Props) 
         {...props}
       />
       {error ? (
-        <p id={errorId} className="text-[13px] text-danger">
+        <p id={errorId} className="text-small text-danger">
           {error}
         </p>
       ) : null}

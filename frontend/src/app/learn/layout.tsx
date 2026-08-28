@@ -6,7 +6,7 @@ import { ThemeSwitcher } from "@/components/theme/ThemeSwitcher";
 /** Minimal chrome — the learning screen prioritises concentration. */
 export default function LearnLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex flex-1 flex-col">
       <header
         data-surface
         className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-ink-200 bg-paper-raised/90 px-5 backdrop-blur-sm"

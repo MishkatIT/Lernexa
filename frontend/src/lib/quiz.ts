@@ -74,6 +74,26 @@ export async function getCourseQuiz(
   }
 }
 
+/** documentIds of every course that has a quiz — one query, for list badges. */
+export async function getCourseIdsWithQuiz(): Promise<Set<string>> {
+  const token = await getToken();
+  try {
+    const res = await strapiFetch<{
+      data: Array<{ course?: { documentId: string } | null }>;
+    }>(
+      "/api/quizzes?fields[0]=title&populate[course][fields][0]=documentId&pagination[pageSize]=200",
+      { token },
+    );
+    return new Set(
+      res.data
+        .map((q) => q.course?.documentId)
+        .filter((id): id is string => Boolean(id)),
+    );
+  } catch {
+    return new Set();
+  }
+}
+
 /** Student view — sanitised, no isCorrect. Null if not enrolled / no quiz. */
 export async function getQuizToTake(
   quizDocumentId: string,

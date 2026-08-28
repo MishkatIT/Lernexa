@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Serif, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
+import { ToastProvider } from "@/components/ui/Toast";
 import { NO_FLASH_SCRIPT } from "@/lib/theme";
 
 // One superfamily, three jobs: Sans for UI, Serif for long-form reading
@@ -48,17 +49,19 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${plexSans.variable} ${plexSerif.variable} ${plexMono.variable} h-full antialiased`}
+      className={`${plexSans.variable} ${plexSerif.variable} ${plexMono.variable} antialiased`}
     >
       {/* suppressHydrationWarning: the no-flash script and browser extensions
           both mutate <html>/<body> before hydration. Scoped one level deep —
           real content mismatches still warn. */}
       <body
         suppressHydrationWarning
-        className="flex min-h-full flex-col overflow-x-hidden"
+        className="flex min-h-dvh flex-col overflow-x-clip"
       >
         <script dangerouslySetInnerHTML={{ __html: NO_FLASH_SCRIPT }} />
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

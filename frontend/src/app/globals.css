@@ -124,6 +124,9 @@
 html {
   color-scheme: light dark;
   background: var(--color-paper);
+  /* Always reserve the scrollbar track so short and long pages don't shift the
+     header, footer or content horizontally. */
+  scrollbar-gutter: stable;
 }
 
 body {

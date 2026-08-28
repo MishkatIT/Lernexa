@@ -45,6 +45,7 @@ Add:
 | field | type | notes |
 |---|---|---|
 | `fullName` | string | display name |
+| `avatarUrl` | text | profile photo — an http(s) URL or a client-resized image data URL (~256px); self-service via `PUT /api/users/me` |
 | `blockedReason` | text | why, shown to admins and to the blocked user |
 | `blockedAt` | datetime | |
 | `blockedBy` | relation N:1 → User | who did it |
@@ -383,6 +384,8 @@ than just happy paths.
 | POST | `/api/auth/local/register` | public | forced student role; gated by `registrationEnabled` |
 | POST | `/api/auth/local` | public | login |
 | GET | `/api/users/me?populate=role` | authed | current user + role |
+| PUT | `/api/users/me` | authed | self-service profile — `{ fullName?, avatarUrl? }` only, partial; role/email/blocked untouchable |
+| POST | `/api/auth/change-password` | authed | built-in Strapi; rotates the session JWT |
 | POST | `/api/enrollments/enroll` | student | `{ courseId }`, idempotent |
 | GET | `/api/enrollments/me` | student | own only, forced filter |
 | **GET** | **`/api/courses/:id/learn`** | enrolled student | **course + ordered lessons + own completions + next lesson, one round trip** |

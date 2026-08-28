@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { enrollInCourse } from "@/actions/learning";
 import { Button } from "@/components/ui/Button";
+import { Alert } from "@/components/ui/Alert";
 
 export function EnrollButton({ courseId }: { courseId: string }) {
   const router = useRouter();
@@ -12,7 +13,7 @@ export function EnrollButton({ courseId }: { courseId: string }) {
 
   return (
     <div className="flex flex-col gap-2">
-      {error ? <p className="text-[13px] text-danger">{error}</p> : null}
+      {error ? <Alert>{error}</Alert> : null}
       <Button
         disabled={pending}
         onClick={async () => {
@@ -28,7 +29,7 @@ export function EnrollButton({ courseId }: { courseId: string }) {
           router.refresh();
         }}
       >
-        {pending ? "Enrolling…" : "Enrol"}
+        {pending ? "Enrolling…" : "Enrol in this course"}
       </Button>
     </div>
   );

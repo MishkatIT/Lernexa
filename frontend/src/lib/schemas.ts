@@ -39,3 +39,44 @@ export const registerSchema = z
     path: ["confirmPassword"],
   });
 export type RegisterInput = z.infer<typeof registerSchema>;
+
+export const profileNameSchema = z.object({
+  fullName: z.string().trim().min(1, "Enter your name").max(120),
+});
+export type ProfileNameInput = z.infer<typeof profileNameSchema>;
+
+/**
+ * `avatarUrl` is either an http(s) link or a small client-resized image data
+ * URL (see the avatar picker on /settings). Empty string clears the photo. The
+ * ceiling mirrors the backend's — a 256px re-encode lands far below it.
+ */
+export const avatarSchema = z.object({
+  avatarUrl: z
+    .string()
+    .trim()
+    .max(700_000, "That image is too large — try a smaller one")
+    .refine(
+      (v) =>
+        v === "" ||
+        /^data:image\/(png|jpe?g|webp|gif);base64,/.test(v) ||
+        /^https?:\/\//.test(v),
+      "Choose an image file",
+    ),
+});
+export type AvatarInput = z.infer<typeof avatarSchema>;
+
+export const passwordChangeSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Enter your current password"),
+    password: z.string().min(6, "At least 6 characters"),
+    confirmPassword: z.string(),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  })
+  .refine((d) => d.password !== d.currentPassword, {
+    message: "Choose a password different from the current one",
+    path: ["password"],
+  });
+export type PasswordChangeInput = z.infer<typeof passwordChangeSchema>;

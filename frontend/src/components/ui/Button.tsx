@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import Link from "next/link";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "md" | "sm";
@@ -18,6 +19,19 @@ const variants: Record<Variant, string> = {
   ghost: "text-ink-700 hover:bg-ink-100 hover:text-ink-900",
   danger: "bg-danger text-on-accent hover:opacity-90",
 };
+
+/** Shared so `Button` (a real button) and `ButtonLink` (an anchor) stay identical. */
+export function buttonClasses({
+  variant = "primary",
+  size = "md",
+  className = "",
+}: {
+  variant?: Variant;
+  size?: Size;
+  className?: string;
+} = {}) {
+  return `${base} ${sizes[size]} ${variants[variant]} ${className}`;
+}
 
 type Props = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> & {
   variant?: Variant;
@@ -40,12 +54,34 @@ export function Button({
 }: Props) {
   return (
     <button
-      className={`${base} ${sizes[size]} ${variants[variant]} ${className}`}
+      className={buttonClasses({ variant, size, className })}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       {...props}
     >
       {loading ? (loadingLabel ?? children) : children}
     </button>
+  );
+}
+
+type LinkProps = Omit<React.ComponentProps<typeof Link>, "className"> & {
+  variant?: Variant;
+  size?: Size;
+  className?: string;
+  children: ReactNode;
+};
+
+/** A link styled as a button — for primary navigation actions ("New course"). */
+export function ButtonLink({
+  variant = "primary",
+  size = "md",
+  className = "",
+  children,
+  ...props
+}: LinkProps) {
+  return (
+    <Link className={buttonClasses({ variant, size, className })} {...props}>
+      {children}
+    </Link>
   );
 }

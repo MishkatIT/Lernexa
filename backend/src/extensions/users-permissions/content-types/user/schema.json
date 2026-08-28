@@ -68,6 +68,9 @@
     "fullName": {
       "type": "string"
     },
+    "avatarUrl": {
+      "type": "text"
+    },
     "blockedReason": {
       "type": "text",
       "private": true

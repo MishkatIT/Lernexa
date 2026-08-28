@@ -40,6 +40,7 @@ export type CurrentUser = {
   username: string;
   email: string;
   fullName: string | null;
+  avatarUrl: string | null;
   blocked: boolean;
   role: { id: number; name: string; type: string } | null;
 };
@@ -54,7 +55,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
   try {
     // The /users/me override returns exactly { id, username, email, fullName,
-    // blocked, role: { id, name, type } } — see the backend extension.
+    // avatarUrl, blocked, role: { id, name, type } } — see the backend extension.
     return await strapiFetch<CurrentUser>("/api/users/me", { token });
   } catch (err) {
     // Blocked mid-session (D-013 enforcement point 3). Cookies can't be mutated

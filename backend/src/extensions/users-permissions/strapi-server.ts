@@ -24,6 +24,42 @@ const registerBodySchema = yup
   })
   .noUnknown();
 
+/**
+ * `PUT /api/users/me` — a partial profile update. Every field is optional; only
+ * the keys actually sent are written. `avatarUrl` holds either an http(s) URL or
+ * a small client-resized image data URL (the frontend caps it near 256px); an
+ * empty string clears it. The 700 KB ceiling is a guard, not a target.
+ */
+const AVATAR_URL_RE =
+  /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=\s]+$|^https?:\/\/\S+$/;
+
+const updateMeSchema = yup
+  .object({
+    fullName: yup.string().trim().min(1).max(120),
+    avatarUrl: yup
+      .string()
+      .trim()
+      .max(700000)
+      .matches(AVATAR_URL_RE, {
+        excludeEmptyString: true,
+        message: 'avatarUrl must be an image data URL or an http(s) URL',
+      })
+      .nullable(),
+  })
+  .noUnknown();
+
+const toMeResponse = (user: any) => ({
+  id: user.id,
+  username: user.username,
+  email: user.email,
+  fullName: user.fullName ?? null,
+  avatarUrl: user.avatarUrl ?? null,
+  blocked: user.blocked,
+  role: user.role
+    ? { id: user.role.id, name: user.role.name, type: user.role.type }
+    : null,
+});
+
 export default (plugin: any) => {
   // ---------------------------------------------------------------------------
   // GET /api/users/me — return the caller's role.
@@ -45,17 +81,60 @@ export default (plugin: any) => {
       populate: { role: true },
     });
 
-    ctx.body = {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      fullName: user.fullName ?? null,
-      blocked: user.blocked,
-      role: user.role
-        ? { id: user.role.id, name: user.role.name, type: user.role.type }
-        : null,
-    };
+    ctx.body = toMeResponse(user);
   };
+
+  // ---------------------------------------------------------------------------
+  // PUT /api/users/me — the caller updates their own profile. Only `fullName`
+  // and `avatarUrl` are writable; role, email, blocked and everything else are
+  // untouchable here. Fields are optional — only what's sent is changed.
+  // ---------------------------------------------------------------------------
+  plugin.controllers.user.updateMe = async (ctx: any) => {
+    if (!ctx.state.user?.id) return ctx.unauthorized();
+
+    let input: yup.InferType<typeof updateMeSchema>;
+    try {
+      input = await updateMeSchema.validate(ctx.request.body ?? {}, {
+        abortEarly: false,
+        stripUnknown: true,
+      });
+    } catch (e: any) {
+      // A raw yup ValidationError would otherwise surface as a 500.
+      return ctx.badRequest(
+        e?.errors?.[0] ?? e?.message ?? 'Invalid profile update',
+      );
+    }
+
+    const data: Record<string, unknown> = {};
+    if (input.fullName !== undefined) data.fullName = input.fullName.trim();
+    if (input.avatarUrl !== undefined) {
+      const v = (input.avatarUrl ?? '').trim();
+      data.avatarUrl = v === '' ? null : v;
+    }
+    if (Object.keys(data).length === 0) {
+      return ctx.badRequest('No writable fields were provided');
+    }
+
+    await strapi.db.query('plugin::users-permissions.user').update({
+      where: { id: ctx.state.user.id },
+      data,
+    });
+
+    const user = await strapi.db.query('plugin::users-permissions.user').findOne({
+      where: { id: ctx.state.user.id },
+      populate: { role: true },
+    });
+
+    ctx.body = toMeResponse(user);
+  };
+
+  // unshift so `/users/me` matches before the core `/users/:id` route.
+  plugin.routes['content-api'].routes.unshift({
+    method: 'PUT',
+    path: '/users/me',
+    handler: 'user.updateMe',
+    config: { prefix: '' },
+  });
 
   // ---------------------------------------------------------------------------
   // POST /api/auth/local/register — see the schema + notes above.

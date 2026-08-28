@@ -4,6 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { setUserRole, setUserBlock } from "@/actions/admin";
 import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { Alert } from "@/components/ui/Alert";
+import { Textarea } from "@/components/ui/Textarea";
+import { Table, THead, TBody, Tr, Th, Td } from "@/components/ui/Table";
+import { useToast } from "@/components/ui/Toast";
 import type { PlatformUser } from "@/lib/admin";
 
 const ROLES = ["admin", "content-manager", "instructor", "student"] as const;
@@ -22,6 +27,7 @@ export function UsersTable({
   currentUserId: number;
 }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [blockModal, setBlockModal] = useState<PlatformUser | null>(null);
@@ -32,7 +38,11 @@ export function UsersTable({
     setError(null);
     const res = await setUserRole(u.id, role);
     setBusyId(null);
-    if (!res.ok) setError(res.error);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    toast(`${u.fullName ?? u.email} is now ${LABEL[role] ?? role}`);
     router.refresh();
   }
 
@@ -42,82 +52,74 @@ export function UsersTable({
     const res = await setUserBlock(u.id, !u.blocked, reason);
     setBusyId(null);
     setBlockModal(null);
-    if (!res.ok) setError(res.error);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    toast(
+      u.blocked
+        ? `${u.fullName ?? u.email} unblocked`
+        : `${u.fullName ?? u.email} blocked`,
+    );
     router.refresh();
   }
 
   return (
     <div>
-      {error ? (
-        <p className="mb-3 border-l-[3px] border-danger bg-accent-100/40 px-3 py-2 text-[13px] text-danger">
-          {error}
-        </p>
-      ) : null}
+      {error ? <Alert className="mb-3">{error}</Alert> : null}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-[14px]">
-          <thead>
-            <tr className="text-left text-[12px] uppercase tracking-wide text-ink-500">
-              <th className="py-2 pr-4 font-medium">Name</th>
-              <th className="py-2 pr-4 font-medium">Email</th>
-              <th className="py-2 pr-4 font-medium">Role</th>
-              <th className="py-2 pr-4 font-medium">Status</th>
-              <th className="py-2 font-medium" />
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => {
-              const isSelf = u.id === currentUserId;
-              return (
-                <tr key={u.id} className="border-t border-ink-200">
-                  <td className="py-2.5 pr-4 text-ink-900">
-                    {u.fullName ?? "—"}
-                  </td>
-                  <td className="py-2.5 pr-4 font-mono text-[13px] text-ink-500">
-                    {u.email}
-                  </td>
-                  <td className="py-2.5 pr-4">
-                    <select
-                      value={u.role?.type ?? ""}
-                      disabled={isSelf || busyId === u.id}
-                      onChange={(e) => changeRole(u, e.target.value)}
-                      className="h-8 rounded-sm border border-ink-200 bg-paper-raised px-2 text-[13px] disabled:opacity-50"
-                    >
-                      {ROLES.map((r) => (
-                        <option key={r} value={r}>
-                          {LABEL[r]}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="py-2.5 pr-4">
-                    <span
-                      className={`rounded-sm border px-2 py-0.5 text-[12px] ${
-                        u.blocked
-                          ? "border-danger text-danger"
-                          : "border-ink-200 text-ink-500"
-                      }`}
-                    >
-                      {u.blocked ? "Blocked" : "Active"}
-                    </span>
-                  </td>
-                  <td className="py-2.5 text-right">
-                    <Button
-                      variant="ghost"
-                      disabled={isSelf || busyId === u.id}
-                      onClick={() =>
-                        u.blocked ? toggleBlock(u) : setBlockModal(u)
-                      }
-                    >
-                      {u.blocked ? "Unblock" : "Block"}
-                    </Button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <Table>
+        <THead>
+          <Th>Name</Th>
+          <Th>Email</Th>
+          <Th>Role</Th>
+          <Th>Status</Th>
+          <Th className="text-right">Actions</Th>
+        </THead>
+        <TBody>
+          {users.map((u) => {
+            const isSelf = u.id === currentUserId;
+            return (
+              <Tr key={u.id}>
+                <Td>{u.fullName ?? "—"}</Td>
+                <Td className="font-mono text-small text-ink-500">{u.email}</Td>
+                <Td>
+                  <select
+                    aria-label={`Role for ${u.fullName ?? u.email}`}
+                    value={u.role?.type ?? ""}
+                    disabled={isSelf || busyId === u.id}
+                    onChange={(e) => changeRole(u, e.target.value)}
+                    className="h-8 rounded-md border border-ink-200 bg-paper-raised px-2 text-small text-ink-900 outline-none focus:ring-2 focus:ring-accent-500 disabled:opacity-50"
+                  >
+                    {ROLES.map((r) => (
+                      <option key={r} value={r}>
+                        {LABEL[r]}
+                      </option>
+                    ))}
+                  </select>
+                </Td>
+                <Td>
+                  <Badge tone={u.blocked ? "danger" : "neutral"}>
+                    {u.blocked ? "Blocked" : "Active"}
+                  </Badge>
+                </Td>
+                <Td className="text-right">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={isSelf || busyId === u.id}
+                    onClick={() =>
+                      u.blocked ? toggleBlock(u) : setBlockModal(u)
+                    }
+                  >
+                    {u.blocked ? "Unblock" : "Block"}
+                  </Button>
+                </Td>
+              </Tr>
+            );
+          })}
+        </TBody>
+      </Table>
 
       {blockModal ? (
         <BlockModal
@@ -166,21 +168,20 @@ function BlockModal({
         role="dialog"
         aria-modal="true"
         aria-label={`Block ${name}`}
-        className="w-full max-w-md rounded-sm border border-ink-200 bg-paper-raised p-6 shadow-lg"
+        className="w-full max-w-md rounded-lg border border-ink-200 bg-paper-raised p-6 shadow-[var(--shadow-overlay)]"
       >
-        <h2 className="text-[17px] font-semibold text-ink-900">Block {name}</h2>
-        <p className="mt-1 text-[13px] text-ink-500">
+        <h2 className="text-h3 text-ink-900">Block {name}</h2>
+        <p className="mt-1 text-small text-ink-500">
           They&apos;ll be signed out on their next request and shown this reason.
         </p>
-        <label className="mt-4 block text-[13px] font-medium text-ink-700">
-          Reason (required)
-        </label>
-        <textarea
-          ref={textareaRef}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          className="mt-1 min-h-20 w-full rounded-sm border border-ink-200 bg-paper-raised px-3 py-2 text-[14px] outline-none focus:ring-2 focus:ring-accent-500"
-        />
+        <div className="mt-4">
+          <Textarea
+            ref={textareaRef}
+            label="Reason (required)"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </div>
         <div className="mt-4 flex justify-end gap-3">
           <Button variant="ghost" onClick={onCancel} disabled={busy}>
             Cancel
@@ -188,9 +189,11 @@ function BlockModal({
           <Button
             variant="danger"
             disabled={busy || reason.trim().length === 0}
+            loading={busy}
+            loadingLabel="Blocking…"
             onClick={() => onConfirm(reason.trim())}
           >
-            {busy ? "Blocking…" : `Block ${name}`}
+            Block {name}
           </Button>
         </div>
       </div>

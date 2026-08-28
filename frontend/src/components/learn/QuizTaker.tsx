@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { submitQuiz } from "@/actions/quizzes";
-import { Button } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
+import { Alert } from "@/components/ui/Alert";
 import type { TakeQuiz, GradeResult } from "@/lib/quiz";
 
 export function QuizTaker({
@@ -46,28 +46,29 @@ export function QuizTaker({
   }
 
   if (result) {
+    const pct = result.totalQuestions
+      ? Math.round((result.score / result.totalQuestions) * 100)
+      : 0;
     return (
-      <div className="mx-auto max-w-[68ch] px-6 py-10">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink-900">
-          {quiz.title} — result
-        </h1>
-        <p className="mt-2 text-[17px] text-ink-900">
-          You scored{" "}
-          <span className="font-semibold">
-            {result.score} / {result.totalQuestions}
+      <div className="mx-auto max-w-[68ch] px-6 py-10 sm:py-14">
+        <p className="font-mono text-small text-ink-500">{quiz.title}</p>
+        <h1 className="mt-1 text-display text-ink-900">Your result</h1>
+        <p className="mt-3 text-h2 text-ink-900">
+          {result.score} / {result.totalQuestions}
+          <span className="ml-2 text-body font-normal text-ink-500">
+            {pct}%
           </span>
-          .
         </p>
 
-        <ol className="mt-6 flex flex-col gap-4">
+        <ol className="mt-8 flex flex-col gap-4">
           {quiz.questions.map((q, i) => {
             const graded = result.answers.find((a) => a.questionId === q.id);
             return (
-              <li key={q.id} className="rounded-sm border border-ink-200 p-4">
-                <p className="text-[15px] font-medium text-ink-900">
+              <li key={q.id} className="rounded-lg border border-ink-200 p-4">
+                <p className="text-body font-medium text-ink-900">
                   {i + 1}. {q.prompt}
                 </p>
-                <ul className="mt-2 flex flex-col gap-1 text-[14px]">
+                <ul className="mt-2 flex flex-col gap-1 text-small">
                   {q.options.map((o) => {
                     const chosen = graded?.selectedOptionId === o.id;
                     return (
@@ -88,7 +89,7 @@ export function QuizTaker({
                   })}
                 </ul>
                 {graded && !graded.correct ? (
-                  <p className="mt-1 text-[13px] text-ink-500">
+                  <p className="mt-1 text-small text-ink-500">
                     Marked incorrect.
                   </p>
                 ) : null}
@@ -98,24 +99,21 @@ export function QuizTaker({
         </ol>
 
         <div className="mt-8">
-          <Link
-            href={`/learn/${courseId}`}
-            className="rounded-sm border border-ink-200 px-4 py-2 text-[15px] font-medium text-ink-900 hover:bg-ink-100"
-          >
+          <ButtonLink href={`/learn/${courseId}`} variant="secondary">
             Back to the course
-          </Link>
+          </ButtonLink>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-[68ch] px-6 py-10">
+    <div className="mx-auto max-w-[68ch] px-6 py-10 sm:py-14">
       <div className="mb-4 flex items-center gap-1.5" aria-hidden>
         {quiz.questions.map((q, i) => (
           <span
             key={q.id}
-            className={`h-1.5 w-6 rounded-sm ${
+            className={`h-1.5 flex-1 rounded-full ${
               i === index
                 ? "bg-accent-500"
                 : picked[q.id] != null
@@ -126,18 +124,16 @@ export function QuizTaker({
         ))}
       </div>
 
-      <p className="font-mono text-[13px] text-ink-500">
+      <p className="font-mono text-small text-ink-500">
         Question {index + 1} of {total}
       </p>
-      <h1 className="mt-1 text-[22px] font-semibold tracking-tight text-ink-900">
-        {question.prompt}
-      </h1>
+      <h1 className="mt-1.5 text-h1 text-ink-900">{question.prompt}</h1>
 
-      <fieldset className="mt-4 flex flex-col gap-2">
+      <fieldset className="mt-5 flex flex-col gap-2">
         {question.options.map((o) => (
           <label
             key={o.id}
-            className={`flex cursor-pointer items-center gap-3 rounded-sm border px-3 py-2.5 text-[15px] ${
+            className={`flex cursor-pointer items-center gap-3 rounded-md border px-3.5 py-2.5 text-body transition-colors ${
               picked[question.id] === o.id
                 ? "border-accent-500 bg-accent-100/40"
                 : "border-ink-200 hover:bg-ink-100"
@@ -150,13 +146,18 @@ export function QuizTaker({
               onChange={() =>
                 setPicked((p) => ({ ...p, [question.id]: o.id }))
               }
+              className="h-4 w-4 accent-accent-600"
             />
             {o.text}
           </label>
         ))}
       </fieldset>
 
-      {error ? <p className="mt-3 text-[13px] text-danger">{error}</p> : null}
+      {error ? (
+        <div className="mt-4">
+          <Alert>{error}</Alert>
+        </div>
+      ) : null}
 
       <div className="mt-8 flex items-center justify-between">
         <Button

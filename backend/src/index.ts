@@ -102,9 +102,16 @@ const BLOG_WRITE = [
  * own courses. `users-permissions.user.find` / `.update` are deliberately
  * granted to nobody: Phase 6 gives admin its own /api/platform/* surface.
  */
+// Every authenticated role can read and edit their own profile + change password.
+const SELF_SERVICE = [
+  'plugin::users-permissions.user.me',
+  'plugin::users-permissions.user.updateMe',
+  'plugin::users-permissions.auth.changePassword',
+];
+
 const ROLE_GRANTS: Record<string, string[]> = {
   admin: [
-    'plugin::users-permissions.user.me',
+    ...SELF_SERVICE,
     ...COURSE_READ,
     ...COURSE_WRITE,
     ...LESSON_ALL,
@@ -116,7 +123,7 @@ const ROLE_GRANTS: Record<string, string[]> = {
     ...BLOG_WRITE,
   ],
   'content-manager': [
-    'plugin::users-permissions.user.me',
+    ...SELF_SERVICE,
     ...COURSE_READ,
     ...COURSE_WRITE,
     ...LESSON_ALL,
@@ -127,7 +134,7 @@ const ROLE_GRANTS: Record<string, string[]> = {
     ...BLOG_WRITE,
   ],
   instructor: [
-    'plugin::users-permissions.user.me',
+    ...SELF_SERVICE,
     ...COURSE_READ,
     ...COURSE_WRITE,
     ...LESSON_ALL,
@@ -137,7 +144,7 @@ const ROLE_GRANTS: Record<string, string[]> = {
     ...BLOG_READ,
   ],
   student: [
-    'plugin::users-permissions.user.me',
+    ...SELF_SERVICE,
     ...COURSE_READ,
     ...STUDENT_LEARNING,
     ...STUDENT_QUIZ,
@@ -185,17 +192,24 @@ export default {
 
     // Ensure the SiteSettings single-type row exists so the register gate and
     // the header have something to read on a fresh deploy.
-    const settingsRepo = strapi.db.query('api::site-setting.site-setting');
-    const existing = await settingsRepo.findOne({});
-    if (!existing) {
-      await settingsRepo.create({
-        data: {
-          siteName: 'Lernexa',
-          registrationEnabled: true,
-          publishedAt: new Date(),
-        },
-      });
-      strapi.log.info('[bootstrap] created SiteSettings row');
+    try {
+      const settingsRepo = strapi.db.query('api::site-setting.site-setting');
+      const existing = await settingsRepo.findOne({});
+      if (!existing) {
+        await settingsRepo.create({
+          data: {
+            siteName: 'Lernexa',
+            registrationEnabled: true,
+            publishedAt: new Date(),
+          },
+        });
+        strapi.log.info('[bootstrap] created SiteSettings row');
+      }
+    } catch (err) {
+      // The table may not exist yet on a first sync — never let this crash boot.
+      strapi.log.warn(
+        `[bootstrap] could not ensure SiteSettings row: ${(err as Error).message}`,
+      );
     }
   },
 };

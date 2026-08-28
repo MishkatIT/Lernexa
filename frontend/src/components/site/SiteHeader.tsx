@@ -2,11 +2,17 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { BrandLockup } from "@/components/Brand";
 import { ThemeSwitcher } from "@/components/theme/ThemeSwitcher";
+import { ProfileMenu } from "@/components/site/ProfileMenu";
 
-type NavUser = { dashboardPath: string } | null;
+type NavUser = {
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+  dashboardPath: string;
+} | null;
 
 const LINKS = [
   { href: "/courses", label: "Courses" },
@@ -15,7 +21,9 @@ const LINKS = [
 
 export function SiteHeader({ user }: { user: NavUser }) {
   const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
   const close = () => setOpen(false);
 
   useEffect(() => {
@@ -27,6 +35,14 @@ export function SiteHeader({ user }: { user: NavUser }) {
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
+
+  async function logout() {
+    setLoggingOut(true);
+    await fetch("/api/auth/logout", { method: "POST" });
+    close();
+    router.push("/");
+    router.refresh();
+  }
 
   return (
     <header
@@ -56,12 +72,12 @@ export function SiteHeader({ user }: { user: NavUser }) {
         <div className="hidden items-center gap-2 md:flex">
           <ThemeSwitcher />
           {user ? (
-            <Link
-              href={user.dashboardPath}
-              className="inline-flex h-9 items-center rounded-md bg-accent-600 px-4 text-small font-medium text-on-accent transition-colors hover:bg-accent-500"
-            >
-              Dashboard
-            </Link>
+            <ProfileMenu
+              name={user.name}
+              email={user.email}
+              avatarUrl={user.avatarUrl}
+              dashboardPath={user.dashboardPath}
+            />
           ) : (
             <>
               <Link
@@ -131,34 +147,73 @@ export function SiteHeader({ user }: { user: NavUser }) {
             <ThemeSwitcher />
           </div>
 
-          <div className="mt-4 flex flex-col gap-2">
-            {user ? (
+          {user ? (
+            <div className="mt-4 border-t border-ink-200 pt-4">
+              <div className="flex items-center gap-2.5 px-2">
+                <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border border-ink-200 bg-ink-100 text-small font-medium text-ink-700">
+                  {user.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- data URL / arbitrary host; no next/image pipeline in this app
+                    <img
+                      src={user.avatarUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    (user.name.trim()[0] ?? "•").toUpperCase()
+                  )}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-body font-medium text-ink-900">
+                    {user.name}
+                  </p>
+                  <p className="truncate text-small text-ink-500">
+                    {user.email}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-2 flex flex-col">
+                <Link
+                  href={user.dashboardPath}
+                  onClick={close}
+                  className="rounded-md px-2 py-2.5 text-body text-ink-700 hover:bg-ink-100 hover:text-ink-900"
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  href="/settings"
+                  onClick={close}
+                  className="rounded-md px-2 py-2.5 text-body text-ink-700 hover:bg-ink-100 hover:text-ink-900"
+                >
+                  Settings
+                </Link>
+                <button
+                  type="button"
+                  onClick={logout}
+                  disabled={loggingOut}
+                  className="rounded-md px-2 py-2.5 text-left text-body text-ink-700 hover:bg-ink-100 hover:text-ink-900 disabled:opacity-60"
+                >
+                  {loggingOut ? "Logging out…" : "Log out"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 flex flex-col gap-2">
               <Link
-                href={user.dashboardPath}
+                href="/login"
+                onClick={close}
+                className="inline-flex h-10 items-center justify-center rounded-md border border-ink-200 px-4 text-body font-medium text-ink-900"
+              >
+                Log in
+              </Link>
+              <Link
+                href="/register"
                 onClick={close}
                 className="inline-flex h-10 items-center justify-center rounded-md bg-accent-600 px-4 text-body font-medium text-on-accent"
               >
-                Dashboard
+                Sign up
               </Link>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  onClick={close}
-                  className="inline-flex h-10 items-center justify-center rounded-md border border-ink-200 px-4 text-body font-medium text-ink-900"
-                >
-                  Log in
-                </Link>
-                <Link
-                  href="/register"
-                  onClick={close}
-                  className="inline-flex h-10 items-center justify-center rounded-md bg-accent-600 px-4 text-body font-medium text-on-accent"
-                >
-                  Sign up
-                </Link>
-              </>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       ) : null}
     </header>

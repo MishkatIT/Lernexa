@@ -1196,6 +1196,7 @@ export interface PluginUsersPermissionsUser
     timestamps: true;
   };
   attributes: {
+    avatarUrl: Schema.Attribute.Text;
     blocked: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     blockedAt: Schema.Attribute.DateTime & Schema.Attribute.Private;
     blockedBy: Schema.Attribute.Relation<
