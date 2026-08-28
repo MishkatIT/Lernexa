@@ -25,8 +25,7 @@ browser.
 Lernexa/
 ├── backend/     Strapi 5 — Railway root directory
 ├── frontend/    Next.js 16 — Vercel root directory
-├── docs/        Engineering plan, architecture, RBAC, data model, decisions
-└── CLAUDE.md    Pointer to docs/AI_HANDOFF.md
+└── docs/        Engineering plan, architecture, RBAC, data model, decisions
 ```
 
 ## Prerequisites

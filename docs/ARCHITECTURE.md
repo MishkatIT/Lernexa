@@ -88,7 +88,7 @@ One repo. The submission form asks for one GitHub link.
 ```
 lms/
 ├── README.md                 ← run instructions, feature list, demo credentials
-├── CLAUDE.md                 ← pointer to docs/AI_HANDOFF.md
+│
 ├── .gitignore
 ├── docs/
 │   ├── PROJECT_PLAN.md
@@ -97,7 +97,7 @@ lms/
 │   ├── RBAC.md
 │   ├── IMPLEMENTATION_CHECKLIST.md
 │   ├── DECISIONS.md
-│   └── AI_HANDOFF.md
+│   └── ENGINEERING.md
 ├── backend/                  ← Strapi 5.  Railway root directory = backend
 │   ├── src/
 │   │   ├── api/

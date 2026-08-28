@@ -40,11 +40,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeChoice>("system");
   const [resolved, setResolved] = useState<ResolvedTheme>("light");
 
-  // Adopt whatever the pre-paint script already resolved.
+  // Adopt whatever the pre-paint script already resolved. This must run in an
+  // effect: localStorage isn't readable during SSR, and the initial state has
+  // to match the server ("system") to avoid a hydration mismatch.
   useEffect(() => {
     const stored =
       (localStorage.getItem(THEME_STORAGE_KEY) as ThemeChoice | null) ??
       "system";
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync from an external store on mount
     setThemeState(stored);
     setResolved(resolve(stored));
   }, []);

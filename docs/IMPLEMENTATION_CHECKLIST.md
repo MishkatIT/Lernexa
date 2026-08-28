@@ -43,7 +43,7 @@ Bad: `update`, `fixes`, `wip`, `final2`.
 ## Phase 0 — Repo + deploy skeleton (~2h)
 
 - [ ] `git init`, root `README.md`, `.gitignore` (node, .env, .strapi, .next)
-- [ ] `docs/*.md` in repo; root `CLAUDE.md` pointing at `docs/AI_HANDOFF.md`
+- [x] `docs/*.md` in repo
 - [ ] `backend/` — Strapi 5, TypeScript, Postgres. **Pin ≥5.37.0**, use latest 5.x
 - [ ] `frontend/` — Next.js **≥16.3.3**, App Router, TS, Tailwind
 - [ ] Railway: Postgres service + Strapi service, root dir `backend`, env vars set

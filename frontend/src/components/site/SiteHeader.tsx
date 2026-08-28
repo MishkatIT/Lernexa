@@ -16,8 +16,8 @@ const LINKS = [
 export function SiteHeader({ user }: { user: NavUser }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const close = () => setOpen(false);
 
-  useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
@@ -118,6 +118,7 @@ export function SiteHeader({ user }: { user: NavUser }) {
               <Link
                 key={l.href}
                 href={l.href}
+                onClick={close}
                 className="rounded-md px-2 py-2.5 text-body text-ink-700 hover:bg-ink-100 hover:text-ink-900"
               >
                 {l.label}
@@ -134,6 +135,7 @@ export function SiteHeader({ user }: { user: NavUser }) {
             {user ? (
               <Link
                 href={user.dashboardPath}
+                onClick={close}
                 className="inline-flex h-10 items-center justify-center rounded-md bg-accent-600 px-4 text-body font-medium text-on-accent"
               >
                 Dashboard
@@ -142,12 +144,14 @@ export function SiteHeader({ user }: { user: NavUser }) {
               <>
                 <Link
                   href="/login"
+                  onClick={close}
                   className="inline-flex h-10 items-center justify-center rounded-md border border-ink-200 px-4 text-body font-medium text-ink-900"
                 >
                   Log in
                 </Link>
                 <Link
                   href="/register"
+                  onClick={close}
                   className="inline-flex h-10 items-center justify-center rounded-md bg-accent-600 px-4 text-body font-medium text-on-accent"
                 >
                   Sign up

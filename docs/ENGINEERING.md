@@ -1,58 +1,32 @@
-# AI_HANDOFF.md — Lernexa
+# ENGINEERING.md — Lernexa
 
-Persistent context for Claude Code working in this repository.
-
-Root `CLAUDE.md` should contain:
-```
-Read docs/AI_HANDOFF.md before doing anything.
-Then read docs/PROJECT_PLAN.md, ARCHITECTURE.md, DATA_MODEL.md, RBAC.md,
-PERFORMANCE.md, DESIGN_SYSTEM.md, ADMIN_PANEL.md, IMPLEMENTATION_CHECKLIST.md,
-DECISIONS.md.
-Current phase: see IMPLEMENTATION_CHECKLIST.md — work the lowest unchecked phase.
-```
-
----
+Engineering context for this repository. Read alongside `PROJECT_PLAN.md`,
+`ARCHITECTURE.md`, `DATA_MODEL.md`, `RBAC.md`, `PERFORMANCE.md`,
+`DESIGN_SYSTEM.md`, `ADMIN_PANEL.md`, `IMPLEMENTATION_CHECKLIST.md`, and
+`DECISIONS.md`.
 
 ## What we are building
 
-**Lernexa** — a Learning Management System. Next.js on Vercel, Strapi 5 on Railway,
+**Lernexa** — a learning platform. Next.js on Vercel, Strapi 5 on Railway,
 PostgreSQL. Four roles: admin, content-manager, instructor, student.
 
 **Product thesis:** progress, not catalogue. Every screen answers "where am I?" before
 "what's available?"
 
-## The context that governs everything
+## Engineering principles
 
-This is a project submission evaluated by a human engineer who reads the code and watches a 10-minute video in which the author explains it line by line.
-
-**The author must understand every line.** Code the author cannot explain is worse than
-no code. Optimise for explainability over cleverness, always.
-
-## Rules of engagement
-
-1. **One phase at a time**, per IMPLEMENTATION_CHECKLIST.md. Read the relevant docs and
-   inspect existing code before starting. Do not skip ahead. Do not implement Phase 6
-   while asked for Phase 3.
-2. **Stop and explain before writing security-relevant code.** Policies, controller
-   overrides, session handling, grading, the blocking middleware: explain the approach
-   in prose, get agreement, then write.
-3. **No unrequested features. Scope is frozen as of the v3 review.** If something seems
-   missing, say so; don't build it. Check PROJECT_PLAN.md Tier 4 and DECISIONS.md
-   D-011 and D-020…D-028 first — twenty-plus capabilities were evaluated and rejected
-   deliberately, with reasons. A Tier 4 entry is a decision, not an oversight.
-
-   If the author asks mid-implementation for something in Tier 4, say which decision
-   covers it and what it would cost against the remaining time, then let them choose.
-4. **Prefer boring, explicit code.** Three near-identical controller overrides that each
-   read clearly beat one generic factory the author can't defend under questioning.
-5. **No new dependencies without asking.** Current set: Next.js, React, Tailwind, zod,
-   `server-only`, IBM Plex via `next/font`, Strapi. Anything else, ask.
-6. **After each phase, output a short summary** in language the author can reuse in the
-   video.
-7. **Flag genuine uncertainty.** Version details in ARCHITECTURE.md may be stale. If a Strapi 5 API surface may have changed, say so and
-   point at the docs rather than guessing.
-8. **When the plan is wrong, say so.** These docs are a plan, not scripture. If
-   something won't work, raise it before building it.
+1. **One phase at a time**, per IMPLEMENTATION_CHECKLIST.md. Inspect existing code
+   before starting a phase; don't skip ahead.
+2. **Prefer boring, explicit code.** Three near-identical controller overrides that
+   each read clearly beat one generic factory that's hard to defend.
+3. **Scope is deliberate.** PROJECT_PLAN.md Tier 4 and DECISIONS.md D-011 and
+   D-020…D-028 record capabilities that were evaluated and rejected on purpose. A
+   Tier 4 entry is a decision, not an oversight.
+4. **Dependency set is small:** Next.js, React, Tailwind, zod, `server-only`, IBM
+   Plex via `next/font`, Strapi (+ `vitest` for tests). Add nothing else without a
+   reason.
+5. **Version details in ARCHITECTURE.md may drift.** When a Strapi 5 API surface
+   looks changed, check the docs rather than guessing.
 
 ## Hard prohibitions
 
@@ -126,15 +100,14 @@ Never, even under time pressure:
 - Authorization verified with curl
 - Edge cases from the relevant doc handled
 - Committed with a meaningful message
-- **The author can explain the data flow out loud**
+- The data flow is explainable end to end
 
-## Ask, don't decide
+## Changes that need a decision recorded
 
 - Any deviation from DATA_MODEL.md
 - Any new npm package
 - Anything changing auth or session
 - Any tradeoff worth a DECISIONS.md entry
-- Anything taking more than ~90 minutes
 - Any visual choice not covered by DESIGN_SYSTEM.md
 
 ## If time runs short
@@ -142,12 +115,9 @@ Never, even under time pressure:
 Follow the cut list in PROJECT_PLAN.md, top-down. **Never cut** backend authorization,
 server-side grading, progress accuracy, deployment, or seed data.
 
-If a phase is running long, **say so and propose what to drop** rather than silently
-shipping something half-finished.
-
 ## Open items requiring empirical verification
 
-Do not assume either answer. Test and record the result:
+Test and record the result rather than assuming:
 
 1. **Does Strapi's per-request auth strategy re-check `user.blocked`?** Confirmed only
    for the login path. Block a user, replay their existing token, observe.

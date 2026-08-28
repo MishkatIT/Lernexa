@@ -1,24 +1,28 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/Button";
 
-/** Clears the (now useless) session cookie via the logout route, then goes to
- *  /login. A full navigation, not router.push, so middleware re-evaluates with
- *  no cookie. */
+/** Clears the (now useless) session cookie via the logout route, then returns
+ *  to /login. Middleware re-evaluates the navigation with no cookie present. */
 export function ClearSessionLink() {
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
 
   return (
-    <button
-      disabled={busy}
+    <Button
+      variant="secondary"
+      loading={busy}
+      loadingLabel="…"
       onClick={async () => {
         setBusy(true);
         await fetch("/api/auth/logout", { method: "POST" });
-        window.location.href = "/login";
+        router.push("/login");
+        router.refresh();
       }}
-      className="rounded-sm border border-ink-200 px-4 py-2 text-[15px] font-medium text-ink-900 hover:bg-ink-100 disabled:opacity-60"
     >
-      {busy ? "…" : "Back to login"}
-    </button>
+      Back to login
+    </Button>
   );
 }

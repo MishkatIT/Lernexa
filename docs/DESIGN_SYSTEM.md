@@ -15,7 +15,7 @@ What we are **not** building, because it is what AI-generated UI looks like:
 - Framer-motion entrance animations on page load
 - Inter
 
-Every visual decision below has a stated reason. If Claude Code proposes something not
+Every visual decision below has a stated reason. If the implementation proposes something not
 justified here, that's the signal to push back.
 
 ## Brand

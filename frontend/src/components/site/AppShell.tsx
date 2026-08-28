@@ -57,7 +57,6 @@ export function AppShell({
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
