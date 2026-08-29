@@ -24,12 +24,14 @@ export type PagedPosts = {
 
 export async function listPublishedPosts(
   page = 1,
+  q?: string,
   pageSize = 10,
 ): Promise<PagedPosts> {
   const qs = new URLSearchParams({
     "pagination[page]": String(Math.max(1, page)),
     "pagination[pageSize]": String(pageSize),
   });
+  if (q?.trim()) qs.set("q", q.trim());
   const res = await strapiFetch<{
     data: PostListItem[];
     meta?: { pagination?: { page: number; pageCount: number; total: number } };

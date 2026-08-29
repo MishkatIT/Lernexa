@@ -16,17 +16,13 @@ export default async function ManageHomePage() {
   const user = await getCurrentUser();
   const isInstructor = user?.role?.type === "instructor";
 
-  return isInstructor ? (
-    <InstructorHome userId={user!.id} />
-  ) : (
-    <ManagerHome />
-  );
+  return isInstructor ? <InstructorHome /> : <ManagerHome />;
 }
 
 /* -------------------------------------------------------------------------- */
 
-async function InstructorHome({ userId }: { userId: number }) {
-  const snap = await getInstructorSnapshot(userId);
+async function InstructorHome() {
+  const snap = await getInstructorSnapshot();
   const t = snap.totals;
 
   return (

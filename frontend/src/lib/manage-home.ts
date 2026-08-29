@@ -35,11 +35,10 @@ export type InstructorSnapshot = {
   }[];
 };
 
-/** Instructor home — "which students are stuck?". Exceptions, not totals. */
-export async function getInstructorSnapshot(
-  userId: number,
-): Promise<InstructorSnapshot> {
-  const courses = await listAllManagedCourses(userId);
+/** Instructor home — "which students are stuck?". Exceptions, not totals.
+ *  The backend scopes the course list to the caller (instructor) from the token. */
+export async function getInstructorSnapshot(): Promise<InstructorSnapshot> {
+  const courses = await listAllManagedCourses();
   const cutoff = Date.now() - WEEK_MS;
 
   const perCourse = await Promise.all(

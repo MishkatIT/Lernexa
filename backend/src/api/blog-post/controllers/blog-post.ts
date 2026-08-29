@@ -52,10 +52,25 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
         ? 'draft'
         : 'published';
 
+    // Free-text search on the title, ANDed onto the caller filters. A WHERE
+    // clause, so it spans every page and the `total` count tracks it.
+    const q = (ctx.query?.q ?? '').toString().trim();
+    const filters = q
+      ? {
+          $and: [
+            ...(Object.keys((sanitized.filters as object) ?? {}).length
+              ? [sanitized.filters]
+              : []),
+            { title: { $containsi: q } },
+          ],
+        }
+      : sanitized.filters;
+
     // Core service `find` returns { results, pagination } — same pattern as the
     // course controller. This is what makes ?pagination[page] actually work.
     const { results, pagination } = (await strapi.service(UID).find({
       ...sanitized,
+      filters,
       status,
       fields: ['title', 'slug', 'coverImageUrl', 'publishedAt', 'createdAt'],
       populate: { author: { fields: ['fullName'] } },

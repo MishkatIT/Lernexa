@@ -37,9 +37,11 @@ type PagedResponse<T> = {
 const fallbackPagination = { page: 1, pageCount: 1, total: 0 };
 
 /** Public catalogue, paginated. Server-forced: courses with zero lessons are
- *  filtered out by the controller for non-managers. */
+ *  filtered out by the controller for non-managers. `q` searches title +
+ *  description in Strapi, so it spans every page and `total` reflects it. */
 export async function listCatalogue(
   page = 1,
+  q?: string,
   pageSize = 12,
 ): Promise<Paged<CourseLite>> {
   const qs = new URLSearchParams({
@@ -47,6 +49,7 @@ export async function listCatalogue(
     "pagination[pageSize]": String(pageSize),
     sort: "createdAt:desc",
   });
+  if (q?.trim()) qs.set("q", q.trim());
   const res = await strapiFetch<PagedResponse<CourseLite>>(
     `/api/courses?${qs}`,
     { cache: "no-store" },
@@ -55,13 +58,15 @@ export async function listCatalogue(
   return { items: res.data, page: p.page, pageCount: p.pageCount, total: p.total };
 }
 
-/** Manage list, paginated. Instructors pass their own id; managers see all. */
+/** Manage list, paginated. The backend scopes an instructor to their own
+ *  courses from the token (course.find) — no client-side owner filter, which
+ *  Strapi strips anyway. `q` is the same server-side search as the catalogue. */
 export async function listManagedCourses({
-  mineId,
+  q,
   page = 1,
   pageSize = 20,
 }: {
-  mineId?: number;
+  q?: string;
   page?: number;
   pageSize?: number;
 } = {}): Promise<Paged<CourseLite>> {
@@ -71,7 +76,7 @@ export async function listManagedCourses({
     "pagination[pageSize]": String(pageSize),
     sort: "createdAt:desc",
   });
-  if (mineId) qs.set("filters[instructor][id][$eq]", String(mineId));
+  if (q?.trim()) qs.set("q", q.trim());
   const res = await strapiFetch<PagedResponse<CourseLite>>(
     `/api/courses?${qs}`,
     { token },
@@ -82,12 +87,10 @@ export async function listManagedCourses({
 
 /** Every managed course, across all pages — for aggregation (worklist,
  *  instructor snapshot) where completeness matters more than payload size. */
-export async function listAllManagedCourses(
-  mineId?: number,
-): Promise<CourseLite[]> {
+export async function listAllManagedCourses(q?: string): Promise<CourseLite[]> {
   const out: CourseLite[] = [];
   for (let page = 1; ; page += 1) {
-    const res = await listManagedCourses({ mineId, page, pageSize: 100 });
+    const res = await listManagedCourses({ q, page, pageSize: 100 });
     out.push(...res.items);
     if (page >= res.pageCount) break;
   }

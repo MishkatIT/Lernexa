@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   gradeQuiz,
   toStudentQuiz,
+  buildAttemptReview,
   type Quiz,
 } from '../src/api/quiz/services/grading';
 
@@ -112,5 +113,74 @@ describe('gradeQuiz', () => {
   it('ids compare across number/string', () => {
     const r = gradeQuiz(quiz, [{ questionId: '10', selectedOptionId: '101' }]);
     expect(r.answers[0].correct).toBe(true);
+  });
+});
+
+describe('buildAttemptReview', () => {
+  it('freezes prompt + both option labels for a correct answer', () => {
+    const result = gradeQuiz(quiz, [{ questionId: 10, selectedOptionId: 101 }]);
+    const review = buildAttemptReview(quiz, result);
+    expect(review[0]).toEqual({
+      questionId: 10,
+      prompt: '2 + 2?',
+      selectedOptionId: 101,
+      selectedOptionText: '4',
+      correctOptionId: 101,
+      correctOptionText: '4',
+      correct: true,
+    });
+  });
+
+  it('records the correct answer even when the student got it wrong', () => {
+    const result = gradeQuiz(quiz, [{ questionId: 11, selectedOptionId: 111 }]);
+    const row = buildAttemptReview(quiz, result).find((r) => r.questionId === 11)!;
+    expect(row).toMatchObject({
+      selectedOptionText: 'Green',
+      correctOptionText: 'Blue',
+      correct: false,
+    });
+  });
+
+  it('a blank answer has null selected text but still names the correct one', () => {
+    const result = gradeQuiz(quiz, []);
+    const row = buildAttemptReview(quiz, result)[0];
+    expect(row).toMatchObject({
+      selectedOptionId: null,
+      selectedOptionText: null,
+      correctOptionText: '4',
+      correct: false,
+    });
+  });
+
+  it('a question with no correct option marked leaves correctOptionText null', () => {
+    const broken: Quiz = {
+      id: 9,
+      title: 'Broken',
+      questions: [
+        {
+          id: 90,
+          prompt: 'Unwinnable',
+          options: [
+            { id: 900, text: 'A', isCorrect: false },
+            { id: 901, text: 'B', isCorrect: false },
+          ],
+        },
+      ],
+    };
+    const review = buildAttemptReview(
+      broken,
+      gradeQuiz(broken, [{ questionId: 90, selectedOptionId: 900 }]),
+    );
+    expect(review[0]).toMatchObject({
+      selectedOptionText: 'A',
+      correctOptionId: null,
+      correctOptionText: null,
+      correct: false,
+    });
+  });
+
+  it('one row per quiz question, in quiz order', () => {
+    const review = buildAttemptReview(quiz, gradeQuiz(quiz, []));
+    expect(review.map((r) => r.questionId)).toEqual([10, 11]);
   });
 });

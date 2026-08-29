@@ -178,7 +178,17 @@ export default async function DashboardPage() {
 
           {attempts.length > 0 ? (
             <section className="mt-12">
-              <SectionHeader title="Recent quiz scores" />
+              <SectionHeader
+                title="Recent quiz scores"
+                action={
+                  <Link
+                    href="/results"
+                    className="text-small text-accent-600 hover:underline"
+                  >
+                    All results &amp; review →
+                  </Link>
+                }
+              />
               <ul className="mt-5 divide-y divide-ink-200 overflow-hidden rounded-lg border border-ink-200">
                 {attempts.slice(0, 5).map((a, i) => {
                   const pct = a.totalQuestions

@@ -3,6 +3,7 @@ import type { Core } from '@strapi/strapi';
 import {
   toStudentQuiz,
   gradeQuiz,
+  buildAttemptReview,
   type Quiz,
   type SubmittedAnswer,
 } from '../services/grading';
@@ -79,13 +80,15 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
 
     const result = gradeQuiz(quiz, submission);
 
+    // Store the reviewable snapshot, not the bare graded ids — a later view of
+    // this attempt then needs no join back to the quiz (which may have changed).
     await strapi.db.query('api::quiz-attempt.quiz-attempt').create({
       data: {
         student: userId,
         quiz: quiz.id,
         score: result.score,
         totalQuestions: result.totalQuestions,
-        answers: result.answers,
+        answers: buildAttemptReview(quiz, result),
         submittedAt: new Date(),
         publishedAt: new Date(),
       },

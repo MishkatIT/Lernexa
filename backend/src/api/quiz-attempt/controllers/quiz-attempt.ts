@@ -15,9 +15,11 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
       populate: { quiz: { populate: { course: true } } },
       orderBy: { submittedAt: 'desc' },
     })) as Array<{
+      documentId: string;
       score: number;
       totalQuestions: number;
       submittedAt: string;
+      answers: unknown;
       quiz?: {
         documentId: string;
         title: string;
@@ -27,9 +29,14 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
 
     ctx.body = {
       data: rows.map((r) => ({
+        id: r.documentId,
         score: r.score,
         totalQuestions: r.totalQuestions,
         submittedAt: r.submittedAt,
+        // The frozen per-question review (grading.ts buildAttemptReview). Older
+        // attempts predating the snapshot store the bare graded ids — the UI
+        // treats a row without `prompt` as "score only".
+        answers: Array.isArray(r.answers) ? r.answers : [],
         quiz: r.quiz
           ? {
               id: r.quiz.documentId,

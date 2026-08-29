@@ -28,10 +28,24 @@ export type GradeResult = {
   answers: GradedAnswer[];
 };
 
+/** One frozen question row from a past attempt (grading.ts buildAttemptReview).
+ *  Attempts taken before the snapshot landed have an empty `answers` array. */
+export type AttemptReviewRow = {
+  questionId: number | string;
+  prompt: string;
+  selectedOptionId: number | string | null;
+  selectedOptionText: string | null;
+  correctOptionId: number | string | null;
+  correctOptionText: string | null;
+  correct: boolean;
+};
+
 export type MyAttempt = {
+  id: string;
   score: number;
   totalQuestions: number;
   submittedAt: string;
+  answers: AttemptReviewRow[];
   quiz: { id: string; title: string; course: { id: string; title: string } | null } | null;
 };
 

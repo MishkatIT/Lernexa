@@ -63,15 +63,41 @@ const SAFE_POPULATE = {
 export default factories.createCoreController(UID, ({ strapi }) => ({
   async find(ctx) {
     const self = this as unknown as CoreHelpers;
-    const isManager = MANAGER_ROLES.includes(ctx.state.user?.role?.type ?? '');
+    const role = ctx.state.user?.role?.type ?? '';
+    const isManager = MANAGER_ROLES.includes(role);
     const sanitized = await self.sanitizeQuery(ctx);
 
-    const filters = isManager
-      ? sanitized.filters
-      : {
-          ...((sanitized.filters as Record<string, unknown>) ?? {}),
-          lessons: { id: { $notNull: true } }, // forced last
-        };
+    // Every server-forced clause is ANDed on top of the (already sanitised)
+    // caller filters — never merged key-by-key, so a client filter can't widen
+    // or overwrite one (D-005). Order inside `$and` doesn't matter; presence does.
+    const and: unknown[] = [];
+    const base = (sanitized.filters as Record<string, unknown>) ?? {};
+    if (Object.keys(base).length > 0) and.push(base);
+
+    // Free-text search: title OR description, case-insensitive. Spans the whole
+    // result set — it's a WHERE clause, so pagination and the `total` count both
+    // reflect the filtered set, never just the current page.
+    const q = (ctx.query?.q ?? '').toString().trim();
+    if (q) {
+      and.push({
+        $or: [{ title: { $containsi: q } }, { description: { $containsi: q } }],
+      });
+    }
+
+    if (role === 'instructor') {
+      // "Own courses only" (permission matrix). sanitizeQuery strips a
+      // client-sent `filters[instructor][id]` because the instructor role has
+      // no read grant on the user type, so the scope MUST be re-applied here or
+      // an instructor's /manage list shows every course on the platform.
+      // Mirrors the forced owner on `create` and the forced filter on
+      // `lesson.find`.
+      and.push({ instructor: { id: { $eq: ctx.state.user.id } } });
+    } else if (!isManager) {
+      // Public catalogue: hide courses with no lessons.
+      and.push({ lessons: { id: { $notNull: true } } });
+    }
+
+    const filters = and.length > 0 ? { $and: and } : {};
 
     const { results, pagination } = await strapi.service(UID).find({
       ...sanitized,

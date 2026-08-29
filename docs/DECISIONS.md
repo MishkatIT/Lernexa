@@ -374,6 +374,82 @@ Put these in the README. Naming your own gaps is a strength signal.
 
 ---
 
+## New in the review pass
+
+### D-034 — Instructor catalogue scope is forced in the controller, not the query string
+
+**Decision:** `course.find` re-applies `instructor = ctx.state.user.id` for the
+instructor role, ANDed on last, the same way `create` forces the owner and
+`lesson.find` forces its filter.
+
+**Why:** the frontend used to send `filters[instructor][id][$eq]=<self>` on the
+`/manage/courses` list. `sanitizeQuery` silently *drops* any filter clause that
+traverses `plugin::users-permissions.user`, because the instructor role has no
+read grant on that type — so the filter never reached the database and an
+instructor's manage list showed every course on the platform (writes were still
+blocked by `is-course-owner`, but the matrix says "own only" and a reviewer
+would see the leak). A forced controller filter can't be stripped: it's applied
+after sanitisation, on the server, from the token.
+
+**Tradeoff:** `/api/courses` is still a public endpoint that returns every course
+to anyone — that's the catalogue and it's intentional. Only the *manager* view
+is scoped; the scoping key is the caller's role + id, never a query param.
+
+**Rejected alternative:** a dedicated `/api/courses/mine` endpoint — more surface
+for the same result; the role check in the existing controller is enough.
+
+### D-035 — Site-wide search is a server-side WHERE clause, debounced on the client
+
+**Decision:** the catalogue, the manage-courses list, the blog, the admin users
+table and the audit log all take a `q` param that Strapi turns into a
+`$containsi` filter (`$or` over title/description where it applies). The input is
+a client component that debounces keystrokes (~350ms) and writes `q` into the
+URL via `router.replace`; the server component reruns the query. Any `page`
+param is dropped on a new search.
+
+**Why:** searching must span the whole dataset, not the page on screen. Because
+`q` is a filter, the result set *and* the pagination `total` reflect the match —
+"12 courses matching 'react'" is a real count, and page 2 of a search is page 2
+of the filtered rows. Debouncing keeps it to roughly one request per settled
+query instead of one per keystroke. The URL holds the state, so a search is
+shareable and survives back/forward.
+
+**Tradeoff:** `$containsi` is a substring scan, not full-text ranking. At this
+data volume (tens of courses, hundreds of posts) with the `slug`/`created_at`
+indexes it's instant; a large corpus would want Postgres `tsvector` or a search
+service. The managed-blog list is the one exception — it's small and unpaginated,
+so it filters in memory.
+
+### D-036 — Aggregate counts never come off a page
+
+**Decision:** every "total X" shown in the UI is a `COUNT(*)` (the admin
+`/platform/stats` endpoint) or the `meta.pagination.total` from the same filtered
+query — never `items.length` of the current page. The instructor dashboard
+totals fold over *all* pages of the owned-course list, not the first.
+
+**Why:** a stat that changes when you click "next page" is a bug. Keeping counts
+and rows on the same filter/where keeps them honest under both pagination and
+search.
+
+### D-037 — Quiz attempts store a self-contained review snapshot
+
+**Decision:** `buildAttemptReview` (pure, in `grading.ts`) freezes each
+question's prompt, the chosen option's text, and the correct option's text into
+the `quiz_attempt.answers` JSON at submit time. `GET /api/quiz-attempts/me`
+returns it; a new `/results` page renders the full per-question review from it.
+
+**Why:** "the quiz result is stored and viewable later" (spec) has to survive the
+quiz being edited or a question deleted afterwards. Reading the snapshot needs no
+join back to the live quiz, so an old attempt always renders exactly as it was
+taken. Same discipline as `toStudentQuiz` — the row can only contain what it
+names. Attempts written before this change keep only the score; the UI shows
+those as "score only".
+
+**Tradeoff:** a few hundred bytes more per attempt. Acceptable for an immutable
+historical record.
+
+---
+
 ## Template
 
 ```

@@ -9,6 +9,7 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ButtonLink } from "@/components/ui/Button";
 import { Pagination } from "@/components/ui/Pagination";
+import { SearchField } from "@/components/ui/SearchField";
 
 export const metadata: Metadata = { title: "Courses" };
 
@@ -17,25 +18,26 @@ type Filter = "needs-lessons" | "needs-quiz" | undefined;
 export default async function ManageCoursesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string; page?: string }>;
+  searchParams: Promise<{ filter?: string; page?: string; q?: string }>;
 }) {
   const sp = await searchParams;
   const filter = sp.filter as Filter;
   const page = Math.max(1, Number(sp.page) || 1);
+  const q = sp.q?.trim() || undefined;
   const user = await getCurrentUser();
   const scopeToSelf = user?.role?.type === "instructor";
-  const mineId = scopeToSelf ? user!.id : undefined;
 
+  // The backend scopes an instructor to their own courses from the token.
   // A "needs-*" filter has to look across every course, not one page.
   const [pageData, quizCourseIds] = await Promise.all([
     filter
-      ? listAllManagedCourses(mineId).then((items) => ({
+      ? listAllManagedCourses(q).then((items) => ({
           items,
           page: 1,
           pageCount: 1,
           total: items.length,
         }))
-      : listManagedCourses({ mineId, page }),
+      : listManagedCourses({ q, page }),
     getCourseIdsWithQuiz(),
   ]);
 
@@ -83,7 +85,11 @@ export default async function ManageCoursesPage({
             ← Show all courses
           </Link>
         </p>
-      ) : null}
+      ) : (
+        <div className="mt-5 max-w-sm">
+          <SearchField placeholder="Search your courses by title" />
+        </div>
+      )}
 
       {visible.length === 0 ? (
         <div className="mt-8">
@@ -91,23 +97,29 @@ export default async function ManageCoursesPage({
             title={
               filterLabel
                 ? "Nothing matches this filter"
-                : page > 1
-                  ? "Nothing on this page"
-                  : "No courses yet"
+                : q
+                  ? "No courses match your search"
+                  : page > 1
+                    ? "Nothing on this page"
+                    : "No courses yet"
             }
             description={
               filterLabel
                 ? "Every course in scope is in good shape."
-                : page > 1
-                  ? "Head back to the first page."
-                  : "Create your first course — you'll add lessons to it next."
+                : q
+                  ? "Try a different term, or clear the search."
+                  : page > 1
+                    ? "Head back to the first page."
+                    : "Create your first course — you'll add lessons to it next."
             }
             action={
               filterLabel
                 ? undefined
-                : page > 1
-                  ? { label: "First page", href: "/manage/courses" }
-                  : { label: "New course", href: "/manage/courses/new" }
+                : q
+                  ? { label: "Clear search", href: "/manage/courses" }
+                  : page > 1
+                    ? { label: "First page", href: "/manage/courses" }
+                    : { label: "New course", href: "/manage/courses/new" }
             }
           />
         </div>
@@ -153,9 +165,13 @@ export default async function ManageCoursesPage({
               className="mt-8"
               page={pageData.page}
               pageCount={pageData.pageCount}
-              makeHref={(p) =>
-                p === 1 ? "/manage/courses" : `/manage/courses?page=${p}`
-              }
+              makeHref={(p) => {
+                const params = new URLSearchParams();
+                if (q) params.set("q", q);
+                if (p > 1) params.set("page", String(p));
+                const s = params.toString();
+                return s ? `/manage/courses?${s}` : "/manage/courses";
+              }}
             />
           ) : null}
         </>

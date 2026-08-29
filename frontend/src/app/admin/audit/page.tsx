@@ -3,16 +3,13 @@ import Link from "next/link";
 import { requireRole } from "@/lib/guards";
 import {
   listAuditLog,
-  AUDIT_ACTIONS,
   AUDIT_PAGE_SIZE,
   type AuditQuery,
 } from "@/lib/audit";
-import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
-import { Button } from "@/components/ui/Button";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { AuditTable } from "@/components/admin/AuditTable";
+import { AuditFilters } from "@/components/admin/AuditFilters";
 
 export const metadata: Metadata = { title: "Audit log" };
 
@@ -64,45 +61,7 @@ export default async function AuditLogPage({
         description="Append-only history of security-sensitive and structural changes. Entries are written by the backend and cannot be edited or deleted. Learning activity — enrolments, completions, quiz attempts — is analytics and lives on the dashboards, not here."
       />
 
-      <form className="mt-6 flex flex-wrap items-end gap-3" method="get">
-        <div className="w-56">
-          <Input
-            label="Search"
-            name="q"
-            defaultValue={sp.q ?? ""}
-            placeholder="Actor or target"
-          />
-        </div>
-        <Select label="Category" name="category" defaultValue={sp.category ?? ""}>
-          <option value="">Any category</option>
-          <option value="security">Security</option>
-          <option value="content">Content</option>
-          <option value="account">Account</option>
-        </Select>
-        <Select label="Event" name="action" defaultValue={sp.action ?? ""}>
-          <option value="">Any event</option>
-          {AUDIT_ACTIONS.map((a) => (
-            <option key={a.value} value={a.value}>
-              {a.label}
-            </option>
-          ))}
-        </Select>
-        <Select label="Order" name="sort" defaultValue={sp.sort ?? "newest"}>
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
-        </Select>
-        <Button type="submit" variant="secondary">
-          Apply
-        </Button>
-        {hasFilters ? (
-          <Link
-            href="/admin/audit"
-            className="pb-2.5 text-small text-ink-500 hover:text-ink-900"
-          >
-            Clear
-          </Link>
-        ) : null}
-      </form>
+      <AuditFilters />
 
       <p className="mt-5 text-small text-ink-500">
         {total === 0

@@ -10,7 +10,14 @@ import type { NextRequest } from "next/server";
  */
 const COOKIE = process.env.SESSION_COOKIE_NAME || "lms_session";
 
-const PROTECTED = ["/dashboard", "/manage", "/admin", "/learn", "/my-courses"];
+const PROTECTED = [
+  "/dashboard",
+  "/manage",
+  "/admin",
+  "/learn",
+  "/my-courses",
+  "/results",
+];
 const AUTH_PAGES = ["/login", "/register"];
 
 export function proxy(req: NextRequest) {

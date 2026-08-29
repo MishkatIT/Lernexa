@@ -96,3 +96,51 @@ export function gradeQuiz(
     answers,
   };
 }
+
+/**
+ * One row of a stored attempt, carrying enough text to render the review months
+ * later with no join back to the (possibly since-edited) quiz. This is the
+ * "attempt stores a snapshot" point (D-004 / IMPLEMENTATION_CHECKLIST Phase 5):
+ * the prompt and both option labels are frozen at submit time.
+ */
+export type AttemptReviewRow = {
+  questionId: number | string;
+  prompt: string;
+  selectedOptionId: number | string | null;
+  selectedOptionText: string | null;
+  correctOptionId: number | string | null;
+  correctOptionText: string | null;
+  correct: boolean;
+};
+
+/**
+ * Build the reviewable snapshot from the graded result + the full quiz. Pure —
+ * the controller feeds it the quiz it already loaded for grading. `isCorrect`
+ * is read here to name the correct option, but only the option *text* leaves in
+ * the row; and this runs only after a submission, for that student's own attempt.
+ */
+export function buildAttemptReview(
+  quiz: Quiz,
+  result: GradeResult,
+): AttemptReviewRow[] {
+  const graded = new Map(result.answers.map((a) => [String(a.questionId), a]));
+
+  return (quiz.questions ?? []).map((q) => {
+    const g = graded.get(String(q.id));
+    const options = q.options ?? [];
+    const chosen = options.find(
+      (o) => String(o.id) === String(g?.selectedOptionId ?? ''),
+    );
+    const correctOpt = options.find((o) => o.isCorrect === true);
+
+    return {
+      questionId: q.id,
+      prompt: q.prompt,
+      selectedOptionId: g?.selectedOptionId ?? null,
+      selectedOptionText: chosen?.text ?? null,
+      correctOptionId: correctOpt?.id ?? null,
+      correctOptionText: correctOpt?.text ?? null,
+      correct: g?.correct === true,
+    };
+  });
+}

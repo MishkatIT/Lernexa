@@ -100,7 +100,10 @@ Tracked against `docs/IMPLEMENTATION_CHECKLIST.md`.
 - [x] **Phase 5** — Quiz + server-side grading _(isCorrect never leaves the server, pure gradeQuiz, snapshot attempts, grading.test.ts)_
 - [x] **Phase 6** — Admin panel + user blocking _(platform API, per-request block check, registrationEnabled gate, attention queue)_
 - [x] **Phase 7** — Blog, tests, seed _(published-only public blog, permission-matrix.test.ts, verify-auth.sh, idempotent seed)_
-- [x] **Phase 8** — Polish _(error / not-found / forbidden states, loading skeletons, README)_ · ship pending
+- [x] **Phase 8** — Polish _(error / not-found / forbidden states, loading skeletons, toasts, README)_ · ship pending
+- [x] **Review pass** — audit log, instructor catalogue scope forced in the controller (D-034),
+  site-wide debounced server-side search (D-035), pagination-independent counts (D-036),
+  self-contained quiz-attempt review snapshot + `/results` page (D-037), second query-index migration
 
 ## Demo credentials
 
@@ -147,8 +150,8 @@ Documented deliberately (see `docs/DECISIONS.md`):
 - No image uploads — cover images are URLs; Railway's filesystem is ephemeral.
 - Lesson ordering is a manual integer, not drag-and-drop.
 - Quizzes are single-answer MCQ only.
-- No audit log — role/block changes aren't recorded to an append-only trail (Tier 3, deferred). D-015 records the design.
-- No toast system — form mutations show inline success/error text instead.
+- Search is substring match (`$containsi`), not full-text ranking — fine at this data
+  volume; a large corpus would want Postgres `tsvector` or a search service (D-035).
 
 ## Theming
 

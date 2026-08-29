@@ -2,12 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/session";
 import { listPlatformUsers } from "@/lib/admin";
-import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
-import { Button } from "@/components/ui/Button";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { UsersTable } from "@/components/admin/UsersTable";
+import { UsersFilters } from "@/components/admin/UsersFilters";
 
 export const metadata: Metadata = { title: "Users" };
 
@@ -46,42 +44,7 @@ export default async function AdminUsersPage({
         }.`}
       />
 
-      <form
-        className="mt-6 flex flex-wrap items-end gap-3"
-        method="get"
-      >
-        <div className="w-56">
-          <Input
-            label="Search"
-            name="q"
-            defaultValue={sp.q ?? ""}
-            placeholder="Name or email"
-          />
-        </div>
-        <Select label="Role" name="role" defaultValue={sp.role ?? ""}>
-          <option value="">Any role</option>
-          <option value="admin">Admin</option>
-          <option value="content-manager">Content Manager</option>
-          <option value="instructor">Instructor</option>
-          <option value="student">Student</option>
-        </Select>
-        <Select label="Status" name="status" defaultValue={sp.status ?? ""}>
-          <option value="">Any status</option>
-          <option value="active">Active</option>
-          <option value="blocked">Blocked</option>
-        </Select>
-        <Button type="submit" variant="secondary">
-          Apply
-        </Button>
-        {hasFilters ? (
-          <Link
-            href="/admin/users"
-            className="pb-2.5 text-small text-ink-500 hover:text-ink-900"
-          >
-            Clear
-          </Link>
-        ) : null}
-      </form>
+      <UsersFilters />
 
       <div className="mt-6">
         {users.length === 0 ? (
