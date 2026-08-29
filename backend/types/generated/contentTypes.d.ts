@@ -548,6 +548,11 @@ export interface ApiCourseCourse extends Struct.CollectionTypeSchema {
       'manyToOne',
       'plugin::users-permissions.user'
     >;
+    lessonProgression: Schema.Attribute.Enumeration<
+      ['free', 'complete_locked', 'open_locked']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'free'>;
     lessons: Schema.Attribute.Relation<'oneToMany', 'api::lesson.lesson'>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
