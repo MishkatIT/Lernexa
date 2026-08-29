@@ -157,13 +157,43 @@ const ROLE_GRANTS: Record<string, string[]> = {
 /** Actions granted to the built-in `public` role (anonymous visitors). */
 const PUBLIC_GRANTS = [...COURSE_READ, ...SETTINGS_READ, ...BLOG_READ];
 
+/**
+ * Every action this file is the authority for. The reconcile step (below) may
+ * only ever revoke an action in this set — a permission outside it (some other
+ * plugin's, or one a future phase adds and forgets to list) is left untouched.
+ * Keep this in sync with the constants above; a grant not reachable from here
+ * is invisible to reconciliation.
+ */
+const ALL_MANAGED_ACTIONS = new Set<string>([
+  ...SELF_SERVICE,
+  ...COURSE_READ,
+  ...COURSE_WRITE,
+  ...LESSON_ALL,
+  ...QUIZ_MANAGE,
+  ...STUDENT_LEARNING,
+  ...STUDENT_PROGRESS_VIEW,
+  ...STUDENT_QUIZ,
+  ...PLATFORM_ADMIN,
+  ...SETTINGS_READ,
+  ...BLOG_READ,
+  ...BLOG_WRITE,
+]);
+
 export default {
   register(/* { strapi } */) {},
 
   /**
-   * On every boot: ensure the four application roles exist and hold at least
-   * the permissions in ROLE_GRANTS (and PUBLIC_GRANTS for anonymous). Idempotent
-   * and additive — nothing is revoked here. Never creates user accounts.
+   * On every boot: ensure the four application roles exist and hold EXACTLY the
+   * permissions in ROLE_GRANTS (and PUBLIC_GRANTS for anonymous) — within the
+   * set of actions this file manages. Two passes:
+   *
+   *   1. grant   — additive; adds any listed permission the role is missing.
+   *   2. reconcile — subtractive; removes any MANAGED permission the role holds
+   *      but is not granted here, so a hand-edit in the admin panel or a
+   *      leftover from an old grant list cannot silently widen a role past the
+   *      permission matrix. Only ALL_MANAGED_ACTIONS is ever touched.
+   *
+   * Idempotent. Never creates user accounts.
    */
   async bootstrap({ strapi }: { strapi: Core.Strapi }) {
     const roleRepo = strapi.db.query('plugin::users-permissions.role');
@@ -179,17 +209,42 @@ export default {
       }
     };
 
+    const reconcile = async (roleId: number, actions: string[], label: string) => {
+      const allowed = new Set(actions);
+      const held = (await permRepo.findMany({
+        where: { role: roleId },
+        select: ['id', 'action'],
+      })) as Array<{ id: number; action: string | null }>;
+      for (const perm of held) {
+        if (
+          perm.action &&
+          ALL_MANAGED_ACTIONS.has(perm.action) &&
+          !allowed.has(perm.action)
+        ) {
+          await permRepo.delete({ where: { id: perm.id } });
+          strapi.log.warn(
+            `[bootstrap] revoked ${perm.action} <- "${label}" (not in matrix)`,
+          );
+        }
+      }
+    };
+
     for (const role of APPLICATION_ROLES) {
       let record = await roleRepo.findOne({ where: { type: role.type } });
       if (!record) {
         record = await roleRepo.create({ data: role });
         strapi.log.info(`[bootstrap] created application role "${role.type}"`);
       }
-      await grant(record.id, ROLE_GRANTS[role.type] ?? [], role.type);
+      const grants = ROLE_GRANTS[role.type] ?? [];
+      await grant(record.id, grants, role.type);
+      await reconcile(record.id, grants, role.type);
     }
 
     const publicRole = await roleRepo.findOne({ where: { type: 'public' } });
-    if (publicRole) await grant(publicRole.id, PUBLIC_GRANTS, 'public');
+    if (publicRole) {
+      await grant(publicRole.id, PUBLIC_GRANTS, 'public');
+      await reconcile(publicRole.id, PUBLIC_GRANTS, 'public');
+    }
 
     // Ensure the SiteSettings single-type row exists so the register gate and
     // the header have something to read on a fresh deploy.
