@@ -186,10 +186,19 @@ export default (plugin: any) => {
 
       // Layer 1 — allowlist. stripUnknown drops everything else (incl. role) so
       // the request still succeeds; only an invalid email/password 400s.
-      const clean = await registerBodySchema.validate(ctx.request.body ?? {}, {
-        abortEarly: false,
-        stripUnknown: true,
-      });
+      // A raw yup ValidationError would otherwise surface as a 500 (same guard
+      // as updateMe above).
+      let clean: yup.InferType<typeof registerBodySchema>;
+      try {
+        clean = await registerBodySchema.validate(ctx.request.body ?? {}, {
+          abortEarly: false,
+          stripUnknown: true,
+        });
+      } catch (e: any) {
+        return ctx.badRequest(
+          e?.errors?.[0] ?? e?.message ?? 'Invalid registration',
+        );
+      }
 
       const fullName = clean.fullName?.trim() || undefined;
 
