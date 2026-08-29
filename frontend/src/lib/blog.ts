@@ -48,6 +48,18 @@ type ListOptions = { q?: string; category?: string; pageSize?: number };
 
 const EMPTY_PAGINATION = { page: 1, pageCount: 1, total: 0 };
 
+/**
+ * Published-post reads are public and identical for everyone, so they're cached
+ * and shared across requests — this is what makes switching topics on the blog
+ * index feel instant on a revisit. Blog mutations call
+ * `revalidateTag("blog-posts")` (actions/blog.ts) so editors never see stale
+ * data; the 5-minute window just bounds drift if that ever misfires.
+ */
+const PUBLIC_POSTS = {
+  cache: "force-cache" as const,
+  next: { revalidate: 300, tags: ["blog-posts"] },
+};
+
 export async function listPublishedPosts(
   page = 1,
   { q, category, pageSize = 12 }: ListOptions = {},
@@ -62,7 +74,7 @@ export async function listPublishedPosts(
   const res = await strapiFetch<{
     data: PostListItem[];
     meta?: { pagination?: { page: number; pageCount: number; total: number } };
-  }>(`/api/blog-posts?${qs}`, { cache: "no-store" });
+  }>(`/api/blog-posts?${qs}`, PUBLIC_POSTS);
 
   const p = res.meta?.pagination ?? EMPTY_PAGINATION;
   return { items: res.data, page: p.page, pageCount: p.pageCount, total: p.total };
@@ -78,7 +90,7 @@ export async function countByCategory(
       meta?: { pagination?: { total: number } };
     }>(
       `/api/blog-posts?category=${encodeURIComponent(category)}&pagination[pageSize]=1`,
-      { cache: "no-store" },
+      PUBLIC_POSTS,
     );
     return res.meta?.pagination?.total ?? 0;
   } catch {

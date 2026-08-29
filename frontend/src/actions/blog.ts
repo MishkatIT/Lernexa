@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { getToken } from "@/lib/session";
 import { strapiFetch, StrapiError } from "@/lib/strapi";
 import type { ActionResult } from "./courses";
@@ -40,6 +40,7 @@ export async function createPost(
       },
     );
     revalidatePath("/manage/blog");
+    updateTag("blog-posts");
     return { ok: true, documentId: res.data.documentId };
   } catch (err) {
     return { ok: false, error: err instanceof StrapiError ? err.message : "Could not create the post." };
@@ -63,6 +64,7 @@ export async function updatePost(
     revalidatePath("/manage/blog");
     revalidatePath(`/manage/blog/${documentId}`);
     revalidatePath("/blog");
+    updateTag("blog-posts");
     return { ok: true, documentId };
   } catch (err) {
     return { ok: false, error: err instanceof StrapiError ? err.message : "Could not save." };
@@ -82,6 +84,7 @@ async function transition(
     });
     revalidatePath("/manage/blog");
     revalidatePath("/blog");
+    updateTag("blog-posts");
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof StrapiError ? err.message : `Could not ${verb}.` };
@@ -102,6 +105,7 @@ export async function deletePost(documentId: string): Promise<ActionResult> {
     await strapiFetch(`/api/blog-posts/${documentId}`, { method: "DELETE", token });
     revalidatePath("/manage/blog");
     revalidatePath("/blog");
+    updateTag("blog-posts");
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof StrapiError ? err.message : "Could not delete." };

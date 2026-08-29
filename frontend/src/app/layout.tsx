@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Serif, IBM_Plex_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { ToastProvider } from "@/components/ui/Toast";
@@ -58,7 +59,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         suppressHydrationWarning
         className="flex min-h-dvh flex-col overflow-x-clip"
       >
-        <script dangerouslySetInnerHTML={{ __html: NO_FLASH_SCRIPT }} />
+        <Script
+          id="no-flash-theme"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: NO_FLASH_SCRIPT }}
+        />
         <ThemeProvider>
           <ToastProvider>{children}</ToastProvider>
         </ThemeProvider>

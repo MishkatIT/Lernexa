@@ -4,9 +4,9 @@ export type ThemeChoice = "light" | "dark" | "system";
 export type ResolvedTheme = "light" | "dark";
 
 /**
- * Runs before first paint (injected at the top of <body>) so a returning
- * dark-mode visitor never sees a light flash. Mirrors the resolution logic in
- * ThemeProvider.
+ * Runs before first paint (injected into <head> via next/script's
+ * beforeInteractive strategy) so a returning dark-mode visitor never sees a
+ * light flash. Mirrors the resolution logic in ThemeProvider.
  */
 export const NO_FLASH_SCRIPT = `(function(){try{
 var k=${JSON.stringify(THEME_STORAGE_KEY)};
