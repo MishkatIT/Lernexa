@@ -42,6 +42,8 @@ export type RegisterInput = z.infer<typeof registerSchema>;
 
 export const profileNameSchema = z.object({
   fullName: z.string().trim().min(1, "Enter your name").max(120),
+  // Optional author bio shown on blog posts. "" clears it.
+  bio: z.string().trim().max(280, "Keep it under 280 characters").optional(),
 });
 export type ProfileNameInput = z.infer<typeof profileNameSchema>;
 

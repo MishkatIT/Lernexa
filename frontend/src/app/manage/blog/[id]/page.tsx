@@ -41,6 +41,8 @@ export default async function EditPostPage({
         initial={{
           title: post.title,
           body: post.body ?? "",
+          subtitle: post.subtitle ?? "",
+          category: post.category ?? "",
           coverImageUrl: post.coverImageUrl ?? "",
         }}
       />

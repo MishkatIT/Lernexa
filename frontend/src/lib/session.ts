@@ -41,6 +41,7 @@ export type CurrentUser = {
   email: string;
   fullName: string | null;
   avatarUrl: string | null;
+  bio: string | null;
   blocked: boolean;
   role: { id: number; name: string; type: string } | null;
 };

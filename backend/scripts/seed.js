@@ -123,10 +123,30 @@ async function inChunks(items, fn, size = 20) {
 // The original six. Emails, roles and the blocked account are unchanged so the
 // README credentials and every existing demo still work.
 const DEMO_USERS = [
-  { email: 'admin@lernexa.test', fullName: 'Ada Admin', role: 'admin' },
-  { email: 'cm@lernexa.test', fullName: 'Cy Manager', role: 'content-manager' },
-  { email: 'instructor@lernexa.test', fullName: 'Ivy Instructor', role: 'instructor' },
-  { email: 'instructor2@lernexa.test', fullName: 'Ike Instructor', role: 'instructor' },
+  {
+    email: 'admin@lernexa.test',
+    fullName: 'Ada Admin',
+    role: 'admin',
+    bio: 'Runs the Lernexa platform. Writes about the operational side of a learning product — access control, data lifecycle, and keeping the thing online.',
+  },
+  {
+    email: 'cm@lernexa.test',
+    fullName: 'Cy Manager',
+    role: 'content-manager',
+    bio: 'Content manager at Lernexa. Shapes the course library and edits the blog.',
+  },
+  {
+    email: 'instructor@lernexa.test',
+    fullName: 'Ivy Instructor',
+    role: 'instructor',
+    bio: 'Instructor at Lernexa. Teaches the fundamentals track and writes about how people actually learn to build software.',
+  },
+  {
+    email: 'instructor2@lernexa.test',
+    fullName: 'Ike Instructor',
+    role: 'instructor',
+    bio: 'Instructor at Lernexa, focused on backend and API design.',
+  },
   { email: 'student@lernexa.test', fullName: 'Sam Student', role: 'student' },
   {
     email: 'blocked@lernexa.test',
@@ -514,6 +534,22 @@ const BLOG_TOPICS = [
   ['Year one in review', 'Courses published, lessons completed, and the features that did not survive contact with users.'],
 ];
 
+// Deterministic category for a post from its real title + intro. Keyword match,
+// then a stable fallback — categorising real content, not inventing it.
+const CATEGORY_RULES = [
+  [/\bapi\b|pagination|outbox|back-?pressure|rate limit|endpoint|postgres|explain|index|sql|query plan|caching|cache/i, 'backend'],
+  [/hydration|focus|single-page|client|dark mode|theming|accessible|accessibility|component/i, 'frontend'],
+  [/typescript|typing|testing|seed|script|notebook|design doc|estimate/i, 'programming'],
+  [/dashboard|progress|roadmap|pricing|year in review|review|announc|new:|resume|search/i, 'product'],
+  [/hiring|senior|onboarding|guidelines|community|career/i, 'career'],
+  [/uptime|deploy|blocking|audit|security|boundary|server component/i, 'engineering'],
+];
+function categoryFor(title, body) {
+  const hay = `${title} ${body}`;
+  for (const [re, cat] of CATEGORY_RULES) if (re.test(hay)) return cat;
+  return 'engineering';
+}
+
 /* ======================================================================== */
 /* MAIN                                                                      */
 /* ======================================================================== */
@@ -584,11 +620,21 @@ async function run(strapi) {
         provider: 'local',
         role: roles[u.role].id,
         fullName: u.fullName,
+        ...(u.bio ? { bio: u.bio } : {}),
         ...(chance(r, 0.35) ? { avatarUrl: AVATAR(u.email) } : {}),
       });
       counts.users = (counts.users || 0) + 1;
     }
     byEmail[u.email] = user;
+
+    // Backfill the author bio on an already-seeded demo account (added later).
+    if (u.bio && !user.bio) {
+      await q('plugin::users-permissions.user').update({
+        where: { id: user.id },
+        data: { bio: u.bio },
+      });
+      user.bio = u.bio;
+    }
 
     const shouldBlock = u.blocked || blockedSet.has(u.email);
     if (shouldBlock && !user.blocked) {
@@ -1010,8 +1056,19 @@ async function run(strapi) {
   for (const [title, body] of blogDefs) {
     bi++;
     const r = rngFor('blog:' + title);
+    const category = categoryFor(title, body);
     const existing = await q('api::blog-post.blog-post').findOne({ where: { title } });
-    if (existing) continue;
+    if (existing) {
+      // Backfill category + subtitle on posts seeded before those fields existed.
+      if (!existing.category || !existing.subtitle) {
+        await knex('blog_posts').where({ title }).update({
+          ...(existing.category ? {} : { category }),
+          ...(existing.subtitle ? {} : { subtitle: body.slice(0, 200) }),
+        });
+        counts.blogBackfilled = (counts.blogBackfilled || 0) + 1;
+      }
+      continue;
+    }
 
     const isDraft = /^Draft:/.test(title);
     const author = blogAuthors[bi % blogAuthors.length];
@@ -1030,7 +1087,15 @@ async function run(strapi) {
     const publishedAt = isDraft ? null : new Date(createdAt.getTime() + int(r, 0, 4) * DAY);
 
     const doc = await strapi.documents('api::blog-post.blog-post').create({
-      data: { title, slug, body: longBody, author: author.id, coverImageUrl: chance(r, 0.5) ? COVER(slug) : null },
+      data: {
+        title,
+        slug,
+        body: longBody,
+        subtitle: body.slice(0, 200),
+        category,
+        author: author.id,
+        coverImageUrl: chance(r, 0.5) ? COVER(slug) : null,
+      },
       status: isDraft ? 'draft' : 'published',
     });
 
@@ -1051,7 +1116,10 @@ async function run(strapi) {
 
     counts.blog = (counts.blog || 0) + 1;
   }
-  log(`blog posts: ${blogDefs.length} total (${counts.blog || 0} new)`);
+  log(
+    `blog posts: ${blogDefs.length} total (${counts.blog || 0} new` +
+      `${counts.blogBackfilled ? `, ${counts.blogBackfilled} backfilled` : ''})`,
+  );
 
   /* ---------------------------------------------------------------------- */
   /* 6. audit log                                                          */

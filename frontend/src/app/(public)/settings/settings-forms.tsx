@@ -6,29 +6,43 @@ import { profileNameSchema, passwordChangeSchema } from "@/lib/schemas";
 import { updateProfileName, changePassword } from "@/actions/profile";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Textarea } from "@/components/ui/Textarea";
 import { Alert } from "@/components/ui/Alert";
 
-export function ProfileForm({ initialName }: { initialName: string }) {
+export function ProfileForm({
+  initialName,
+  initialBio,
+}: {
+  initialName: string;
+  initialBio: string;
+}) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
+  const [bio, setBio] = useState(initialBio);
   const [fieldError, setFieldError] = useState<string | undefined>();
+  const [bioError, setBioError] = useState<string | undefined>();
   const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, setPending] = useState(false);
 
-  const dirty = name.trim() !== initialName.trim();
+  const dirty =
+    name.trim() !== initialName.trim() || bio.trim() !== initialBio.trim();
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setFormError(null);
     setSaved(false);
 
-    const parsed = profileNameSchema.safeParse({ fullName: name });
+    const parsed = profileNameSchema.safeParse({ fullName: name, bio });
     if (!parsed.success) {
-      setFieldError(parsed.error.issues[0]?.message);
+      const byPath = (p: string) =>
+        parsed.error.issues.find((i) => i.path[0] === p)?.message;
+      setFieldError(byPath("fullName"));
+      setBioError(byPath("bio"));
       return;
     }
     setFieldError(undefined);
+    setBioError(undefined);
     setPending(true);
     const res = await updateProfileName(parsed.data);
     setPending(false);
@@ -44,7 +58,7 @@ export function ProfileForm({ initialName }: { initialName: string }) {
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       {formError ? <Alert>{formError}</Alert> : null}
-      {saved ? <Alert tone="success">Your name has been updated.</Alert> : null}
+      {saved ? <Alert tone="success">Your profile has been updated.</Alert> : null}
 
       <Input
         label="Full name"
@@ -53,6 +67,17 @@ export function ProfileForm({ initialName }: { initialName: string }) {
         value={name}
         onChange={(e) => setName(e.target.value)}
         error={fieldError}
+      />
+
+      <Textarea
+        label="Bio"
+        name="bio"
+        value={bio}
+        maxLength={280}
+        onChange={(e) => setBio(e.target.value)}
+        error={bioError}
+        placeholder="A sentence or two about you — shown on articles you write."
+        className="min-h-20"
       />
 
       <div>

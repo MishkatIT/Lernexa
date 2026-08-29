@@ -46,7 +46,10 @@ export default async function SettingsPage() {
           </div>
 
           <div className="mt-6 border-t border-ink-200 pt-6">
-            <ProfileForm initialName={user.fullName ?? user.username} />
+            <ProfileForm
+              initialName={user.fullName ?? user.username}
+              initialBio={user.bio ?? ""}
+            />
           </div>
         </Card>
 

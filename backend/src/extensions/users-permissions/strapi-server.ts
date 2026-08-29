@@ -38,6 +38,7 @@ const AVATAR_URL_RE =
 const updateMeSchema = yup
   .object({
     fullName: yup.string().trim().min(1).max(120),
+    bio: yup.string().trim().max(280).nullable(),
     avatarUrl: yup
       .string()
       .trim()
@@ -56,6 +57,7 @@ const toMeResponse = (user: any) => ({
   email: user.email,
   fullName: user.fullName ?? null,
   avatarUrl: user.avatarUrl ?? null,
+  bio: user.bio ?? null,
   blocked: user.blocked,
   role: user.role
     ? { id: user.role.id, name: user.role.name, type: user.role.type }
@@ -109,6 +111,10 @@ export default (plugin: any) => {
 
     const data: Record<string, unknown> = {};
     if (input.fullName !== undefined) data.fullName = input.fullName.trim();
+    if (input.bio !== undefined) {
+      const v = (input.bio ?? '').trim();
+      data.bio = v === '' ? null : v;
+    }
     if (input.avatarUrl !== undefined) {
       const v = (input.avatarUrl ?? '').trim();
       data.avatarUrl = v === '' ? null : v;

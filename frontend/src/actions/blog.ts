@@ -7,11 +7,19 @@ import type { ActionResult } from "./courses";
 
 const NO_SESSION = { ok: false as const, error: "Your session expired — log in again." };
 
-type PostInput = { title: string; body: string; coverImageUrl?: string };
+type PostInput = {
+  title: string;
+  body: string;
+  subtitle?: string;
+  category?: string;
+  coverImageUrl?: string;
+};
 
 function validate(input: PostInput): string | null {
   if (input.title.trim().length < 3) return "Title needs at least 3 characters.";
   if (input.body.trim().length < 1) return "Write something in the body.";
+  if (input.subtitle && input.subtitle.length > 220)
+    return "Subtitle is too long (220 characters max).";
   return null;
 }
 

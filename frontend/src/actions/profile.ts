@@ -37,16 +37,21 @@ export async function updateProfileName(
     await strapiFetch("/api/users/me", {
       method: "PUT",
       token,
-      body: JSON.stringify({ fullName: parsed.data.fullName }),
+      body: JSON.stringify({
+        fullName: parsed.data.fullName,
+        // Always send bio so an emptied field clears it server-side.
+        bio: parsed.data.bio ?? "",
+      }),
     });
-    // Name shows in every header and the dashboard greeting.
+    // Name shows in every header and the dashboard greeting; bio on blog posts.
     revalidatePath("/", "layout");
+    revalidatePath("/blog", "layout");
     return { ok: true };
   } catch (err) {
     return {
       ok: false,
       error:
-        err instanceof StrapiError ? err.message : "Could not save your name.",
+        err instanceof StrapiError ? err.message : "Could not save your profile.",
     };
   }
 }
