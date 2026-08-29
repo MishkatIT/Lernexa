@@ -12,6 +12,41 @@ import {
 
 const UID = 'api::course.course';
 const MANAGER_ROLES = ['admin', 'content-manager', 'instructor'];
+const ENROLLMENT_UID = 'api::enrollment.enrollment';
+const COMPLETION_UID = 'api::lesson-completion.lesson-completion';
+
+/** Roster batch cap — one round of add/remove touches at most this many rows. */
+const MAX_ROSTER_BATCH = 100;
+
+/** Accepts `string[]` or a single blob (newline / comma / semicolon / space
+ *  separated). Lower-cases, trims, keeps only plausible addresses, dedupes,
+ *  and caps the batch. */
+const parseEmailList = (raw: unknown): string[] => {
+  const parts = Array.isArray(raw)
+    ? raw.map((v) => String(v))
+    : typeof raw === 'string'
+      ? raw.split(/[\s,;]+/)
+      : [];
+  const seen = new Set<string>();
+  for (const p of parts) {
+    const email = p.trim().toLowerCase();
+    if (email.includes('@') && email.length <= 254) seen.add(email);
+    if (seen.size >= MAX_ROSTER_BATCH) break;
+  }
+  return [...seen];
+};
+
+/** Positive integer user ids, deduped and capped. */
+const parseStudentIds = (raw: unknown): number[] => {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<number>();
+  for (const v of raw) {
+    const n = Number(v);
+    if (Number.isInteger(n) && n > 0) seen.add(n);
+    if (seen.size >= MAX_ROSTER_BATCH) break;
+  }
+  return [...seen];
+};
 
 type CoreHelpers = {
   sanitizeQuery(ctx: unknown): Promise<Record<string, unknown>>;
@@ -432,5 +467,165 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
       .sort((a, b) => a.progress.percent - b.progress.percent); // stuck first
 
     ctx.body = { data };
+  },
+
+  /**
+   * POST /api/courses/:id/enrollments — manager adds students by email.
+   * Route-gated by has-role(manager) + is-course-owner, so an instructor only
+   * reaches their own course. Students are resolved by email server-side (the
+   * instructor role has no read grant on users, so no id/list is ever exposed).
+   * Idempotent per email; partial success is a 200 with a per-email breakdown.
+   *
+   * body: { emails: string[] | string, resetProgress?: boolean }
+   *   resetProgress — clear each student's completions for THIS course so they
+   *   start from 0%. Off by default: a re-add resumes prior progress, since
+   *   completions are never deleted on unenrol.
+   */
+  async addEnrollments(ctx) {
+    const course = await strapi.db
+      .query(UID)
+      .findOne({ where: { documentId: ctx.params.id } });
+    if (!course) return ctx.notFound();
+
+    const body = (ctx.request.body ?? {}) as Record<string, unknown>;
+    const src = (body.data ?? body) as Record<string, unknown>;
+    const emails = parseEmailList(src.emails);
+    const resetProgress = src.resetProgress === true || src.resetProgress === 'true';
+    if (emails.length === 0) {
+      return ctx.badRequest('Provide at least one email address.');
+    }
+
+    type Outcome =
+      | 'enrolled'
+      | 'already-enrolled'
+      | 'not-found'
+      | 'not-a-student'
+      | 'blocked';
+    const results: Array<{ email: string; status: Outcome; name?: string }> = [];
+    let added = 0;
+
+    for (const email of emails) {
+      const user = (await strapi.db
+        .query('plugin::users-permissions.user')
+        .findOne({
+          where: { email: { $eqi: email } },
+          populate: { role: true },
+        })) as {
+        id: number;
+        blocked: boolean;
+        fullName: string | null;
+        username: string;
+        role?: { type?: string } | null;
+      } | null;
+
+      if (!user) {
+        results.push({ email, status: 'not-found' });
+        continue;
+      }
+      const name = user.fullName ?? user.username;
+      if (user.role?.type !== 'student') {
+        results.push({ email, status: 'not-a-student', name });
+        continue;
+      }
+      if (user.blocked) {
+        results.push({ email, status: 'blocked', name });
+        continue;
+      }
+
+      const dedupeKey = `${user.id}:${course.id}`;
+      const existing = await strapi.db
+        .query(ENROLLMENT_UID)
+        .findOne({ where: { dedupeKey } });
+
+      if (!existing) {
+        await strapi.db.query(ENROLLMENT_UID).create({
+          data: {
+            student: user.id,
+            course: course.id,
+            enrolledAt: new Date(),
+            dedupeKey,
+            publishedAt: new Date(),
+          },
+        });
+        added += 1;
+      }
+      if (resetProgress) {
+        await strapi.db.query(COMPLETION_UID).deleteMany({
+          where: { student: { id: user.id }, course: { id: course.id } },
+        });
+      }
+      results.push({
+        email,
+        status: existing ? 'already-enrolled' : 'enrolled',
+        name,
+      });
+    }
+
+    await strapi.service('api::audit-log.audit-log').record({
+      action: 'enrollment.added',
+      category: 'content',
+      ctx,
+      target: { type: 'course', id: course.documentId, label: course.title },
+      metadata: {
+        requested: emails.length,
+        added,
+        resetProgress,
+        results,
+      },
+    });
+
+    ctx.body = { data: { added, requested: emails.length, results } };
+  },
+
+  /**
+   * POST /api/courses/:id/enrollments/remove — manager removes students.
+   * Same route gate. Only the enrolment row is deleted; completions are kept
+   * unless `purgeProgress` is set, so an accidental removal can be undone by a
+   * plain re-add. `purgeProgress` also lets a manager fully detach a student
+   * (and makes the course deletable without leftover progress rows).
+   *
+   * body: { studentIds: number[], purgeProgress?: boolean }
+   */
+  async removeEnrollments(ctx) {
+    const course = await strapi.db
+      .query(UID)
+      .findOne({ where: { documentId: ctx.params.id } });
+    if (!course) return ctx.notFound();
+
+    const body = (ctx.request.body ?? {}) as Record<string, unknown>;
+    const src = (body.data ?? body) as Record<string, unknown>;
+    const studentIds = parseStudentIds(src.studentIds);
+    const purgeProgress =
+      src.purgeProgress === true || src.purgeProgress === 'true';
+    if (studentIds.length === 0) {
+      return ctx.badRequest('Provide at least one studentId.');
+    }
+
+    const { count: removed } = await strapi.db.query(ENROLLMENT_UID).deleteMany({
+      where: {
+        course: { id: course.id },
+        student: { id: { $in: studentIds } },
+      },
+    });
+
+    let purged = 0;
+    if (purgeProgress) {
+      ({ count: purged } = await strapi.db.query(COMPLETION_UID).deleteMany({
+        where: {
+          course: { id: course.id },
+          student: { id: { $in: studentIds } },
+        },
+      }));
+    }
+
+    await strapi.service('api::audit-log.audit-log').record({
+      action: 'enrollment.removed',
+      category: 'content',
+      ctx,
+      target: { type: 'course', id: course.documentId, label: course.title },
+      metadata: { studentIds, removed, purgeProgress, purged },
+    });
+
+    ctx.body = { data: { removed, purged } };
   },
 }));

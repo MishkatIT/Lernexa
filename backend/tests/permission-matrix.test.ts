@@ -133,6 +133,17 @@ const CASES: Case[] = [
   { role: 'instructor', method: 'GET', path: () => '/api/enrollments/me', expect: 403 },
   { role: 'student', method: 'GET', path: () => '/api/enrollments/me', expect: 200 },
 
+  // roster management — manager role + course ownership (mirrors edit/delete).
+  // Non-existent emails / ids keep these side-effect-free: a 200 proves only
+  // that the gate opened.
+  { role: 'student', method: 'POST', path: () => `/api/courses/${ownCourseId}/enrollments`, body: { emails: ['ghost@lernexa.test'] }, expect: 403 },
+  { role: 'anon', method: 'POST', path: () => `/api/courses/${ownCourseId}/enrollments`, body: { emails: ['ghost@lernexa.test'] }, expect: [401, 403] },
+  { role: 'instructor2', method: 'POST', path: () => `/api/courses/${ownCourseId}/enrollments`, body: { emails: ['ghost@lernexa.test'] }, expect: 403 },
+  { role: 'instructor2', method: 'POST', path: () => `/api/courses/${ownCourseId}/enrollments/remove`, body: { studentIds: [999999] }, expect: 403 },
+  { role: 'instructor', method: 'POST', path: () => `/api/courses/${ownCourseId}/enrollments`, body: { emails: [] }, expect: 400 },
+  { role: 'instructor', method: 'POST', path: () => `/api/courses/${ownCourseId}/enrollments`, body: { emails: ['ghost@lernexa.test'] }, expect: 200 },
+  { role: 'content-manager', method: 'POST', path: () => `/api/courses/${otherCourseId}/enrollments/remove`, body: { studentIds: [999999] }, expect: 200 },
+
   // blog writes
   { role: 'instructor', method: 'POST', path: () => '/api/blog-posts', body: { data: { title: 'x' } }, expect: 403 },
   { role: 'content-manager', method: 'GET', path: () => '/api/blog-posts?status=draft', expect: 200 },

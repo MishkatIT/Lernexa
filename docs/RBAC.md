@@ -175,6 +175,8 @@ Not: `if (isAdmin) showButton`.
 | `POST /api/quizzes/:id/submit` | ❌ | ❌ | ❌ | ✅ enrolled | ❌ |
 | `POST /api/enrollments/enroll` | ❌ | ❌ | ❌ | ✅ | ❌ |
 | `GET /api/enrollments/me` | ❌ | ❌ | ❌ | ✅ scoped | ❌ |
+| `POST /api/courses/:id/enrollments` (roster add) | ✅ | ✅ | ✅ own only | ❌ | ❌ |
+| `POST /api/courses/:id/enrollments/remove` | ✅ | ✅ | ✅ own only | ❌ | ❌ |
 | `GET /api/courses/:id/learn` | ❌ | ❌ | ❌ | ✅ enrolled | ❌ |
 | `POST /api/lesson-completions/complete` | ❌ | ❌ | ❌ | ✅ enrolled | ❌ |
 | `GET /api/courses/:id/student-progress` | ✅ | ✅ | ✅ own course | ❌ | ❌ |
@@ -204,6 +206,7 @@ configurations — check explicitly.
 | Instructor A edits Instructor B's course | 403 | layer 3 `is-course-owner` |
 | Instructor A adds a lesson to B's course | 403 | layer 3, resolved through course |
 | Instructor A views B's students' progress | 403 | layer 3 on the progress route |
+| Instructor A adds/removes students on B's course | 403 | layer 3 `is-course-owner` on the roster routes |
 | Instructor A reads B's quiz answer key (`GET /api/quizzes/:id`) | 403 | layer 3 `is-quiz-owner` on findOne |
 | Instructor A lists/reads lessons in B's course | 0 results / 403 | layer 4 forced filter + `is-lesson-owner` |
 | Student X reads Student Y's enrollments via `filters` | own rows only | layer 4 forced filter |

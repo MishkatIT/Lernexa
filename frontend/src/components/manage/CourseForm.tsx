@@ -51,9 +51,22 @@ export function CourseForm({ mode, documentId, initial }: Props) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [dirty, setDirty] = useState(false);
 
   const initialProgression: LessonProgressionMode =
     initial?.lessonProgression ?? "free";
+
+  /** Uncontrolled form — recompute "has anything changed" on every edit so the
+   *  Save button only lights up when there's something to save. */
+  function onChange(e: React.FormEvent<HTMLFormElement>) {
+    const fd = new FormData(e.currentTarget);
+    setDirty(
+      (fd.get("title") ?? "") !== (initial?.title ?? "") ||
+        (fd.get("description") ?? "") !== (initial?.description ?? "") ||
+        (fd.get("coverImageUrl") ?? "") !== (initial?.coverImageUrl ?? "") ||
+        (fd.get("lessonProgression") ?? "free") !== initialProgression,
+    );
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -94,7 +107,12 @@ export function CourseForm({ mode, documentId, initial }: Props) {
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate className="flex max-w-xl flex-col gap-4">
+    <form
+      onSubmit={onSubmit}
+      onChange={onChange}
+      noValidate
+      className="flex max-w-xl flex-col gap-4"
+    >
       {formError ? <Alert>{formError}</Alert> : null}
       <Input label="Title" name="title" defaultValue={initial?.title} error={errors.title} />
       <Textarea
@@ -141,16 +159,18 @@ export function CourseForm({ mode, documentId, initial }: Props) {
       </fieldset>
 
       <div className="flex gap-3">
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending || (mode === "edit" && !dirty)}>
           {pending ? "Saving…" : mode === "create" ? "Create course" : "Save changes"}
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => router.push("/manage/courses")}
-        >
-          Cancel
-        </Button>
+        {mode === "create" || dirty ? (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => router.push("/manage/courses")}
+          >
+            Cancel
+          </Button>
+        ) : null}
       </div>
     </form>
   );

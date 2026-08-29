@@ -26,5 +26,37 @@ export default {
         ],
       },
     },
+    // Roster management. Same gate as edit/delete: manager role + course
+    // ownership (admin / CM pass, instructor must own the course). Distinct
+    // from the student-only self-enrol route (POST /api/enrollments/enroll) —
+    // this is "manage this course's roster", not "enrol me".
+    {
+      method: 'POST',
+      path: '/courses/:id/enrollments',
+      handler: 'course.addEnrollments',
+      config: {
+        policies: [
+          {
+            name: 'global::has-role',
+            config: { roles: ['admin', 'content-manager', 'instructor'] },
+          },
+          'global::is-course-owner',
+        ],
+      },
+    },
+    {
+      method: 'POST',
+      path: '/courses/:id/enrollments/remove',
+      handler: 'course.removeEnrollments',
+      config: {
+        policies: [
+          {
+            name: 'global::has-role',
+            config: { roles: ['admin', 'content-manager', 'instructor'] },
+          },
+          'global::is-course-owner',
+        ],
+      },
+    },
   ],
 };

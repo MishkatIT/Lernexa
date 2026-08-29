@@ -60,7 +60,7 @@ export default async function BlogListPage({
       <BlogMasthead canWrite={canWrite} />
 
       <div className="mt-6">
-        <CategoryBar active={category ?? null} counts={catCounts} />
+        <CategoryBar counts={catCounts} />
       </div>
 
       {filtered ? (
