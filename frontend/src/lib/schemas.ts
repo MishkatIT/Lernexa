@@ -12,10 +12,26 @@ export const loginSchema = z.object({
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
+/**
+ * Per-course lesson progression rule (D-038). Mirrors the backend enum. A course
+ * form that omits the field (or sends anything unexpected) defaults to `free`,
+ * matching the server.
+ */
+export const LESSON_PROGRESSION_MODES = [
+  "free",
+  "complete_locked",
+  "open_locked",
+] as const;
+export type LessonProgressionMode = (typeof LESSON_PROGRESSION_MODES)[number];
+
 export const courseSchema = z.object({
   title: z.string().trim().min(3, "At least 3 characters").max(160),
   description: z.string().trim().max(2000).optional().or(z.literal("")),
   coverImageUrl: z.url("Must be a URL").optional().or(z.literal("")),
+  lessonProgression: z
+    .enum(LESSON_PROGRESSION_MODES)
+    .optional()
+    .default("free"),
 });
 export type CourseInput = z.infer<typeof courseSchema>;
 

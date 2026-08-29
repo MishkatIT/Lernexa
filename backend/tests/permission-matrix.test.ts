@@ -95,6 +95,14 @@ const CASES: Case[] = [
   { role: 'instructor', method: 'PUT', path: () => `/api/courses/${ownCourseId}`, body: { data: { description: 'ok' } }, expect: 200 },
   { role: 'content-manager', method: 'PUT', path: () => `/api/courses/${otherCourseId}`, body: { data: { description: 'cm can' } }, expect: 200 },
 
+  // lesson progression setting (D-038) — only the owner / a manager may change it
+  { role: 'student', method: 'PUT', path: () => `/api/courses/${ownCourseId}`, body: { data: { lessonProgression: 'open_locked' } }, expect: 403 },
+  { role: 'anon', method: 'PUT', path: () => `/api/courses/${ownCourseId}`, body: { data: { lessonProgression: 'open_locked' } }, expect: 403 },
+  { role: 'instructor2', method: 'PUT', path: () => `/api/courses/${ownCourseId}`, body: { data: { lessonProgression: 'open_locked' } }, expect: 403 },
+  { role: 'instructor', method: 'PUT', path: () => `/api/courses/${ownCourseId}`, body: { data: { lessonProgression: 'complete_locked' } }, expect: 200 },
+  { role: 'instructor', method: 'PUT', path: () => `/api/courses/${ownCourseId}`, body: { data: { lessonProgression: 'not-a-mode' } }, expect: 400 },
+  { role: 'admin', method: 'PUT', path: () => `/api/courses/${ownCourseId}`, body: { data: { lessonProgression: 'free' } }, expect: 200 },
+
   // quiz isolation
   { role: 'student', method: 'GET', path: () => `/api/quizzes/${quizId}`, expect: 403 },
   { role: 'instructor2', method: 'PUT', path: () => `/api/quizzes/${quizId}`, body: { data: { title: 'x' } }, expect: 403 },

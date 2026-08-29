@@ -56,6 +56,7 @@ export default async function EditCoursePage({
               title: course.title,
               description: course.description ?? "",
               coverImageUrl: course.coverImageUrl ?? "",
+              lessonProgression: course.lessonProgression ?? "free",
             }}
           />
         </div>

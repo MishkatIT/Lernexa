@@ -27,7 +27,14 @@ export function LessonViewer({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  // D-038 progression gate. `locked` (open_locked) hides the body; `!canComplete`
+  // (complete_locked) shows it but blocks completion. An already-completed lesson
+  // is always actionable so the student can still undo it. The server enforces
+  // the same rule — this only keeps the UI honest.
+  const gated = !completed && (lesson.locked || !lesson.canComplete);
+
   function toggle() {
+    if (gated) return;
     const target = !completed;
     setCompleted(target); // optimistic
     setError(null);
@@ -50,27 +57,46 @@ export function LessonViewer({
       <p className="font-mono text-small text-ink-500">Lesson {lesson.order}</p>
       <h1 className="mt-1.5 text-display text-ink-900">{lesson.title}</h1>
 
-      {lesson.videoUrl ? (
-        <p className="mt-5">
-          <a
-            href={lesson.videoUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="text-body text-accent-600 underline decoration-accent-600/40 underline-offset-2 hover:decoration-accent-600"
-          >
-            Watch the video ↗
-          </a>
-        </p>
-      ) : null}
-
-      {lesson.content ? (
-        <div className="mt-7 whitespace-pre-wrap font-serif text-reading text-ink-900">
-          {lesson.content}
+      {lesson.locked ? (
+        <div className="mt-7 rounded-md border border-ink-200 bg-paper-raised p-5">
+          <p className="text-body font-medium text-ink-900">🔒 Lesson locked</p>
+          <p className="mt-1 text-small text-ink-500">
+            {lesson.lockHint ??
+              "Complete the earlier lessons to unlock this one."}
+          </p>
         </div>
       ) : (
-        <p className="mt-7 text-body text-ink-500">
-          This lesson has no written content.
-        </p>
+        <>
+          {lesson.videoUrl ? (
+            <p className="mt-5">
+              <a
+                href={lesson.videoUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-body text-accent-600 underline decoration-accent-600/40 underline-offset-2 hover:decoration-accent-600"
+              >
+                Watch the video ↗
+              </a>
+            </p>
+          ) : null}
+
+          {lesson.content ? (
+            <div className="mt-7 whitespace-pre-wrap font-serif text-reading text-ink-900">
+              {lesson.content}
+            </div>
+          ) : (
+            <p className="mt-7 text-body text-ink-500">
+              This lesson has no written content.
+            </p>
+          )}
+
+          {!completed && !lesson.locked && !lesson.canComplete ? (
+            <p className="mt-6 rounded-md border border-ink-200 bg-paper-raised px-4 py-3 text-small text-ink-500">
+              {lesson.lockHint ??
+                "Complete the earlier lessons before completing this one."}
+            </p>
+          ) : null}
+        </>
       )}
 
       {error ? (
@@ -96,9 +122,16 @@ export function LessonViewer({
           onClick={toggle}
           loading={pending}
           loadingLabel="Saving…"
+          disabled={gated}
           variant={completed ? "secondary" : "primary"}
         >
-          {completed ? "Completed ✓ · Undo" : "Mark complete"}
+          {completed
+            ? "Completed ✓ · Undo"
+            : lesson.locked
+              ? "Locked"
+              : !lesson.canComplete
+                ? "Complete earlier lessons first"
+                : "Mark complete"}
         </Button>
 
         {nextId ? (

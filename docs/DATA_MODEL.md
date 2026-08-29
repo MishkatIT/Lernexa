@@ -94,6 +94,7 @@ the payload as a second layer.
 | `slug` | uid (from title) | |
 | `description` | text | |
 | `coverImageUrl` | string | URL only, no upload plugin |
+| `lessonProgression` | enum `free` \| `complete_locked` \| `open_locked`, required, default `free` | D-038 — how students move through lessons |
 | `instructor` | relation N:1 → User | **the ownership anchor** |
 | `lessons` | 1:N → Lesson | |
 | `quizzes` | 1:N → Quiz | |
@@ -101,6 +102,13 @@ the payload as a second layer.
 
 `instructor` anchors ownership for the whole tree — lesson, quiz, and progress
 visibility all resolve through `→ course → instructor`.
+
+`lessonProgression` (D-038) is enforced server-side by pure helpers in
+`lesson-completion/services/progression.ts`: `free` = no restriction,
+`complete_locked` = a lesson can't be completed until every earlier lesson is,
+`open_locked` = a lesson can't be opened until every earlier lesson is. "Earlier"
+is the course's own `order ASC, id ASC`. Unknown/null normalises to `free`, so
+existing courses are unaffected.
 
 **Do not rely on Strapi's built-in `createdBy`.** It is populated for admin-panel
 creates, not reliably for Content API creates. You need an explicit relation.

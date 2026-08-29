@@ -4,6 +4,11 @@ import {
   computeProgressForCourse,
   nextLessonId,
 } from '../../lesson-completion/services/progress';
+import {
+  PROGRESSION_MODES,
+  lessonGates,
+  normalizeProgression,
+} from '../../lesson-completion/services/progression';
 
 const UID = 'api::course.course';
 const MANAGER_ROLES = ['admin', 'content-manager', 'instructor'];
@@ -20,6 +25,7 @@ type CourseRow = {
   slug: string | null;
   description: string | null;
   coverImageUrl: string | null;
+  lessonProgression: string | null;
   createdAt: string;
   instructor?: { fullName: string | null } | null;
   lessons?: Array<{ title: string; order: number }>;
@@ -37,6 +43,7 @@ const shapeCourse = (c: CourseRow) => ({
   slug: c.slug,
   description: c.description ?? null,
   coverImageUrl: c.coverImageUrl ?? null,
+  lessonProgression: normalizeProgression(c.lessonProgression),
   createdAt: c.createdAt,
   instructor: c.instructor ? { fullName: c.instructor.fullName ?? null } : null,
   lessons: (c.lessons ?? [])
@@ -102,7 +109,7 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
     const { results, pagination } = await strapi.service(UID).find({
       ...sanitized,
       filters,
-      fields: ['title', 'slug', 'description', 'coverImageUrl', 'createdAt'],
+      fields: ['title', 'slug', 'description', 'coverImageUrl', 'lessonProgression', 'createdAt'],
       populate: SAFE_POPULATE,
     });
 
@@ -114,7 +121,7 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
   async findOne(ctx) {
     const self = this as unknown as CoreHelpers;
     const entity = (await strapi.service(UID).findOne(ctx.params.id, {
-      fields: ['title', 'slug', 'description', 'coverImageUrl', 'createdAt'],
+      fields: ['title', 'slug', 'description', 'coverImageUrl', 'lessonProgression', 'createdAt'],
       populate: SAFE_POPULATE,
     })) as CourseRow | null;
 
@@ -150,12 +157,20 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
       coverImageUrl?: string;
       slug?: string;
       instructor?: number;
+      lessonProgression?: string;
     } = {};
     if (typeof body.title === 'string') data.title = body.title;
     if (typeof body.description === 'string') data.description = body.description;
     if (typeof body.coverImageUrl === 'string')
       data.coverImageUrl = body.coverImageUrl;
     if (instructorId) data.instructor = instructorId;
+    // Progression rule (D-038). Anything not in the known set — including an
+    // absent value — falls back to `free`, so a new course is always unlocked.
+    data.lessonProgression = PROGRESSION_MODES.includes(
+      body.lessonProgression as (typeof PROGRESSION_MODES)[number],
+    )
+      ? (body.lessonProgression as string)
+      : 'free';
 
     // The uid lifecycle doesn't fire through the document service, so derive the
     // slug here: kebab-case the title + a short suffix for uniqueness.
@@ -182,6 +197,30 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
     });
 
     return self.transformResponse(shapeCourse(entity));
+  },
+
+  /**
+   * PUT /api/courses/:id. Role + ownership are already enforced on the route
+   * (global::has-role + global::is-course-owner), so a student never reaches
+   * here and an instructor only ever hits their own course. We add one guard:
+   * `lessonProgression`, if present, must be one of the three known modes —
+   * otherwise the enum would let a bad value through and every progression
+   * check would then fall back to `free` silently. Everything else is handled
+   * by the core update.
+   */
+  async update(ctx) {
+    const body = (ctx.request.body?.data ?? {}) as Record<string, unknown>;
+    if (
+      'lessonProgression' in body &&
+      !PROGRESSION_MODES.includes(
+        body.lessonProgression as (typeof PROGRESSION_MODES)[number],
+      )
+    ) {
+      return ctx.badRequest(
+        `lessonProgression must be one of: ${PROGRESSION_MODES.join(', ')}`,
+      );
+    }
+    return super.update(ctx);
   },
 
   async delete(ctx) {
@@ -273,21 +312,43 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
 
     const orderedForNext = lessons.map((l) => ({ id: l.documentId, order: l.order }));
 
+    // Progression rule for this course (D-038). `lessonGates` runs the same pure
+    // logic the `complete` controller enforces, so what the UI shows and what
+    // the server allows can never drift.
+    const mode = normalizeProgression(course.lessonProgression);
+    const gates = lessonGates(
+      mode,
+      lessons.map((l) => ({ id: l.id, order: l.order })),
+      [...doneIds],
+    );
+    const gateByLessonId = new Map(gates.map((g) => [String(g.id), g]));
+
     ctx.body = {
       data: {
         course: {
           id: course.documentId,
           title: course.title,
           slug: course.slug,
+          lessonProgression: mode,
         },
-        lessons: lessons.map((l) => ({
-          id: l.documentId,
-          title: l.title,
-          order: l.order,
-          content: l.content ?? '',
-          videoUrl: l.videoUrl ?? '',
-          completed: doneIds.has(l.id),
-        })),
+        lessons: lessons.map((l) => {
+          const gate = gateByLessonId.get(String(l.id));
+          const locked = gate?.locked ?? false;
+          return {
+            id: l.documentId,
+            title: l.title,
+            order: l.order,
+            // A locked lesson's body never leaves the server — a direct GET on
+            // /learn can't be used to read ahead in `open_locked` mode.
+            content: locked ? '' : (l.content ?? ''),
+            videoUrl: locked ? '' : (l.videoUrl ?? ''),
+            completed: doneIds.has(l.id),
+            status: gate?.status ?? 'available',
+            locked,
+            canComplete: gate?.canComplete ?? true,
+            lockHint: gate?.hint ?? null,
+          };
+        }),
         progress: computeProgress(
           lessons.map((l) => l.id),
           [...doneIds],

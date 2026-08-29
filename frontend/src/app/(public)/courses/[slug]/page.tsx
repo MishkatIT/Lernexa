@@ -35,6 +35,9 @@ export default async function CourseDetailPage({ params }: Params) {
   const doneIds = new Set(
     learn?.lessons.filter((l) => l.completed).map((l) => l.id) ?? [],
   );
+  const lockedIds = new Set(
+    learn?.lessons.filter((l) => l.locked).map((l) => l.id) ?? [],
+  );
   const currentId = learn?.nextLessonId ?? null;
 
   const lessons =
@@ -123,7 +126,8 @@ export default async function CourseDetailPage({ params }: Params) {
         <ol className="mt-4 divide-y divide-ink-200 overflow-hidden rounded-lg border border-ink-200">
           {lessons.map((l) => {
             const done = enrolled && doneIds.has(l.id);
-            const current = enrolled && l.id === currentId;
+            const locked = enrolled && lockedIds.has(l.id);
+            const current = enrolled && !locked && l.id === currentId;
             return (
               <li
                 key={`${l.order}-${l.title}`}
@@ -141,7 +145,7 @@ export default async function CourseDetailPage({ params }: Params) {
                         : "border-ink-200 text-ink-500"
                   }`}
                 >
-                  {done ? "✓" : String(l.order).padStart(2, "0")}
+                  {done ? "✓" : locked ? "🔒" : String(l.order).padStart(2, "0")}
                 </span>
                 <span
                   className={`text-body ${
@@ -153,11 +157,13 @@ export default async function CourseDetailPage({ params }: Params) {
                 <span className="ml-auto text-small text-ink-500">
                   {done
                     ? "Done"
-                    : current
-                      ? "Current"
-                      : enrolled
-                        ? "Upcoming"
-                        : "Locked"}
+                    : locked
+                      ? "Locked"
+                      : current
+                        ? "Current"
+                        : enrolled
+                          ? "Upcoming"
+                          : "Locked"}
                 </span>
               </li>
             );
