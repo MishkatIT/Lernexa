@@ -664,6 +664,16 @@ async function run(strapi) {
       .replace(/(^-|-$)/g, '')
       .slice(0, 90);
 
+    // Lesson progression rule (D-038). Most courses stay on the default `free`;
+    // two demo courses show the locked modes so the feature is visible in the
+    // seeded app without any clicking.
+    const progression =
+      title === 'TypeScript for Teams'
+        ? 'complete_locked'
+        : title === 'API Design Basics'
+          ? 'open_locked'
+          : 'free';
+
     let course = await q('api::course.course').findOne({ where: { title } });
     if (!course) {
       course = await q('api::course.course').create({
@@ -673,10 +683,17 @@ async function run(strapi) {
           description,
           coverImageUrl: chance(r, 0.6) ? COVER(slug) : null,
           instructor: owner.id,
+          lessonProgression: progression,
           publishedAt: new Date(),
         },
       });
       counts.courses = (counts.courses || 0) + 1;
+    } else if (course.lessonProgression !== progression) {
+      // idempotent re-run: bring an existing seeded course to the intended mode
+      course = await q('api::course.course').update({
+        where: { id: course.id },
+        data: { lessonProgression: progression },
+      });
     }
 
     // lessons — created only when the course currently has none

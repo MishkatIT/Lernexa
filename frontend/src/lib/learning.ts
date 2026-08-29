@@ -2,6 +2,7 @@ import "server-only";
 
 import { strapiFetch, StrapiError } from "./strapi";
 import { getToken } from "./session";
+import type { LessonProgressionMode } from "./schemas";
 
 export type Progress = { completed: number; total: number; percent: number };
 
@@ -11,17 +12,38 @@ export type MyEnrollment = {
   progress: Progress;
 };
 
+/** Per-lesson gate decision, computed server-side (D-038). */
+export type LessonGateStatus =
+  | "completed"
+  | "available"
+  | "cannot_complete"
+  | "locked";
+
 export type LearnLesson = {
   id: string;
   title: string;
   order: number;
+  /** Empty string when `locked` — the server does not send a locked body. */
   content: string;
   videoUrl: string;
   completed: boolean;
+  /** "completed" | "available" | "cannot_complete" | "locked" */
+  status: LessonGateStatus;
+  /** open_locked mode, earlier lessons unfinished — cannot be opened yet */
+  locked: boolean;
+  /** may this lesson be marked complete right now */
+  canComplete: boolean;
+  /** short reason shown when the lesson is gated, else null */
+  lockHint: string | null;
 };
 
 export type LearnContext = {
-  course: { id: string; title: string; slug: string | null };
+  course: {
+    id: string;
+    title: string;
+    slug: string | null;
+    lessonProgression: LessonProgressionMode;
+  };
   lessons: LearnLesson[];
   progress: Progress;
   nextLessonId: string | null;

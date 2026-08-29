@@ -2,6 +2,7 @@ import "server-only";
 
 import { strapiFetch } from "./strapi";
 import { getToken } from "./session";
+import type { LessonProgressionMode } from "./schemas";
 
 export type CourseLite = {
   documentId: string;
@@ -9,6 +10,9 @@ export type CourseLite = {
   slug: string | null;
   description: string | null;
   coverImageUrl: string | null;
+  /** D-038 — how students move through lessons. Backend guarantees one of the
+   *  three modes; older payloads without the field are treated as "free". */
+  lessonProgression: LessonProgressionMode;
   createdAt: string;
   instructor: { fullName: string | null } | null;
   lessons: { title: string; order: number }[];

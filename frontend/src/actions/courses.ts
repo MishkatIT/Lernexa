@@ -10,7 +10,12 @@ export type ActionResult =
   | { ok: false; error: string };
 
 function toPayload(input: CourseInput) {
-  const data: Record<string, string> = { title: input.title };
+  const data: Record<string, string> = {
+    title: input.title,
+    // Always sent — the backend re-validates and the form always resolves it to
+    // one of the three modes (default "free").
+    lessonProgression: input.lessonProgression ?? "free",
+  };
   if (input.description) data.description = input.description;
   if (input.coverImageUrl) data.coverImageUrl = input.coverImageUrl;
   return data;

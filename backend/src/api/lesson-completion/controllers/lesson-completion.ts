@@ -1,6 +1,10 @@
 import { factories } from '@strapi/strapi';
 import type { Core } from '@strapi/strapi';
 import { computeProgress } from '../services/progress';
+import {
+  canCompleteLesson,
+  normalizeProgression,
+} from '../services/progression';
 
 const UID = 'api::lesson-completion.lesson-completion';
 
@@ -53,6 +57,43 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
     const dedupeKey = `${userId}:${lesson.id}`;
     const existing = await strapi.db.query(UID).findOne({ where: { dedupeKey } });
     if (!existing) {
+      // Progression gate (D-038). `free` → no check. `complete_locked` /
+      // `open_locked` → every earlier lesson in course order must already be
+      // completed. Enforced here, server-side, so a direct API call can't skip
+      // ahead regardless of what the UI shows. Re-marking an already-completed
+      // lesson is exempt (handled inside canCompleteLesson).
+      const mode = normalizeProgression(lesson.course.lessonProgression);
+      if (mode !== 'free') {
+        const courseLessons = (await strapi.db
+          .query('api::lesson.lesson')
+          .findMany({
+            where: { course: { id: courseId } },
+            orderBy: { order: 'asc' },
+          })) as Array<{ id: number; order: number }>;
+
+        const done = (await strapi.db.query(UID).findMany({
+          where: { student: { id: userId }, course: { id: courseId } },
+          populate: { lesson: true },
+        })) as Array<{ lesson?: { id: number } | null }>;
+
+        const doneIds = done
+          .map((d) => d.lesson?.id)
+          .filter((id): id is number => typeof id === 'number');
+
+        if (
+          !canCompleteLesson(
+            mode,
+            courseLessons.map((l) => ({ id: l.id, order: l.order })),
+            doneIds,
+            lesson.id,
+          )
+        ) {
+          return ctx.forbidden(
+            'Complete the earlier lessons before completing this one.',
+          );
+        }
+      }
+
       await strapi.db.query(UID).create({
         data: {
           student: userId,

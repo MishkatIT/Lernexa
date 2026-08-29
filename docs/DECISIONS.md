@@ -448,6 +448,52 @@ those as "score only".
 **Tradeoff:** a few hundred bytes more per attempt. Acceptable for an immutable
 historical record.
 
+### D-038 — Per-course lesson progression rule (`free` / `complete_locked` / `open_locked`)
+
+**Decision:** `course.lessonProgression` is a new required enum, default `free`.
+Three modes:
+
+- `free` — view and complete lessons in any order (the prior behaviour).
+- `complete_locked` — every lesson is viewable, but a lesson can only be
+  *completed* once every earlier lesson (course order: `order ASC, id ASC`) is
+  completed.
+- `open_locked` — a later lesson cannot be *opened* until every earlier lesson is
+  completed; its body is not sent by `/learn` and completion is gated too.
+
+The rule lives in pure functions in
+`api/lesson-completion/services/progression.ts` (`canCompleteLesson`,
+`canOpenLesson`, `lessonGates`, `normalizeProgression`) — plain ordered-lesson
+data in, decisions out, no `ctx`, unit-tested without booting Strapi. The same
+functions run in `course.learn` (to annotate each lesson `status` / `locked` /
+`canComplete` / `lockHint` and to strip a locked lesson's `content`/`videoUrl`)
+and in `lesson-completion.complete` (to reject a forbidden completion with 403).
+The setting is changed through the existing `PUT /api/courses/:id`, already gated
+by `global::has-role` + `global::is-course-owner`; the controller only adds an
+enum-validity check. Students have no `course.update` grant, so they can never
+change it.
+
+**Why:** enforcement has to be server-side — a direct `POST
+/api/lesson-completions/complete` or a deep link to `/learn/:course/:lesson`
+must be refused regardless of the UI. Deriving "required previous lessons" from
+the existing `order` (rather than storing a prerequisite graph) means reordering,
+inserting and deleting lessons need no extra bookkeeping. `normalizeProgression`
+maps any unknown/null value to `free`, so existing courses and rows created
+outside the controller behave exactly as before.
+
+**Migration:** `2026.08.31…course-lesson-progression.js` backfills
+`lesson_progression = 'free'` for existing rows and sets the column default;
+idempotent. No data is destroyed and already-recorded completions are untouched
+(a stale earlier completion just means a later lesson shows as available).
+
+**Tradeoff:** the `complete` path does two extra reads (course lessons + this
+student's completions) when the mode isn't `free`. Negligible at this scale and
+only on the write path.
+
+**Rejected alternative:** a separate `LessonPrerequisite` join model — more
+surface, and it would drift from `order` the moment a lesson is reordered. A
+per-lesson `isLocked` flag was also rejected: lock state is derived from the
+student's progress, not stored.
+
 ---
 
 ## Template
