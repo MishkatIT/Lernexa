@@ -105,7 +105,10 @@ Two things worth knowing:
    filters**. Don't outsource your authorization to a framework patch.
 
 Apply layer 4 to: `enrollment`, `lesson-completion`, `quiz-attempt`, `blog-post` (drafts),
-`audit-log`.
+`audit-log`, and — for the **instructor** role only — `lesson` and `quiz` reads
+(`find` forces `course.instructor = me`; `findOne` runs the owner policy). Without it an
+instructor can `GET /api/quizzes/:id` on another instructor's quiz and read the
+`isCorrect` answer key. admin / CM stay unscoped.
 
 ## Blocking — the full enforcement chain
 
@@ -164,9 +167,10 @@ Not: `if (isAdmin) showButton`.
 | `GET /api/courses` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `POST /api/courses` | ✅ | ✅ | ✅ owner forced | ❌ | ❌ |
 | `PUT\|DELETE /api/courses/:id` | ✅ | ✅ | ✅ own only | ❌ | ❌ |
+| `GET /api/lessons` \| `/api/lessons/:id` | ✅ | ✅ | ✅ own course | ❌ | ❌ |
 | `POST\|PUT\|DELETE /api/lessons` | ✅ | ✅ | ✅ own course | ❌ | ❌ |
+| `GET /api/quizzes` \| `/api/quizzes/:id` | ✅ | ✅ | ✅ own course | **❌ disabled** | ❌ |
 | `POST\|PUT\|DELETE /api/quizzes` | ✅ | ✅ | ✅ own course | ❌ | ❌ |
-| `GET /api/quizzes/:id` | ✅ | ✅ | ✅ own | **❌ disabled** | ❌ |
 | `GET /api/quizzes/:id/take` | ❌ | ❌ | ❌ | ✅ enrolled | ❌ |
 | `POST /api/quizzes/:id/submit` | ❌ | ❌ | ❌ | ✅ enrolled | ❌ |
 | `POST /api/enrollments/enroll` | ❌ | ❌ | ❌ | ✅ | ❌ |
@@ -200,6 +204,8 @@ configurations — check explicitly.
 | Instructor A edits Instructor B's course | 403 | layer 3 `is-course-owner` |
 | Instructor A adds a lesson to B's course | 403 | layer 3, resolved through course |
 | Instructor A views B's students' progress | 403 | layer 3 on the progress route |
+| Instructor A reads B's quiz answer key (`GET /api/quizzes/:id`) | 403 | layer 3 `is-quiz-owner` on findOne |
+| Instructor A lists/reads lessons in B's course | 0 results / 403 | layer 4 forced filter + `is-lesson-owner` |
 | Student X reads Student Y's enrollments via `filters` | own rows only | layer 4 forced filter |
 | Student X reads Student Y's quiz attempts | own rows only | layer 4 |
 | Student X submits a quiz as Student Y | ignored | id from `ctx.state.user`, never the body |

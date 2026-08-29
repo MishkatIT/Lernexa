@@ -34,6 +34,36 @@ async function loadFullQuiz(strapi: Core.Strapi, documentId: string) {
  * get `take` (sanitised) and `submit` (graded server-side).
  */
 export default factories.createCoreController(UID, ({ strapi }) => ({
+  /**
+   * GET /api/quizzes — manager list (raw quiz, with isCorrect). Layer 4: an
+   * instructor only ever sees quizzes whose course they own. The scope is
+   * composed with `$and` so a client `filters[course][documentId]` (the manage
+   * UI sends one per course) is preserved, not overwritten — mirrors
+   * course.find. admin / content-manager are unscoped; students and anonymous
+   * have no `quiz.find` grant and never reach here.
+   */
+  async find(ctx) {
+    const self = this as unknown as CoreHelpers;
+    const sanitized = await self.sanitizeQuery(ctx);
+    const type = ctx.state.user?.role?.type;
+
+    const and: unknown[] = [];
+    const base = (sanitized.filters as Record<string, unknown>) ?? {};
+    if (Object.keys(base).length > 0) and.push(base);
+    if (type === 'instructor') {
+      and.push({ course: { instructor: { id: { $eq: ctx.state.user.id } } } });
+    }
+    const filters = and.length > 0 ? { $and: and } : {};
+
+    const { results, pagination } = await strapi
+      .service(UID)
+      .find({ ...sanitized, filters });
+
+    return self.transformResponse(await self.sanitizeOutput(results, ctx), {
+      pagination,
+    });
+  },
+
   /** GET /api/quizzes/:id/take — enrolled student. No isCorrect in the reply. */
   async take(ctx) {
     const userId = ctx.state.user.id;

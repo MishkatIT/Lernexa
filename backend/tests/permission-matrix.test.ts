@@ -27,6 +27,7 @@ const tokens: Record<string, string | null> = {};
 let ownCourseId = '';
 let otherCourseId = '';
 let quizId = '';
+let ownLessonId = '';
 
 async function login(email: string) {
   const res = await fetch(`${BASE}/api/auth/local`, {
@@ -67,12 +68,23 @@ beforeAll(async () => {
   ownCourseId = react?.documentId ?? '';
   otherCourseId = api?.documentId ?? '';
 
+  // A quiz + a lesson that belong to `instructor`'s own course — the fixtures
+  // the cross-instructor read cases probe.
   const quizzes = await (
-    await fetch(`${BASE}/api/quizzes?pagination[pageSize]=1`, {
-      headers: { Authorization: `Bearer ${tokens.instructor}` },
-    })
+    await fetch(
+      `${BASE}/api/quizzes?filters[course][documentId][$eq]=${ownCourseId}&pagination[pageSize]=1`,
+      { headers: { Authorization: `Bearer ${tokens.instructor}` } },
+    )
   ).json();
   quizId = quizzes.data?.[0]?.documentId ?? '';
+
+  const lessons = await (
+    await fetch(
+      `${BASE}/api/lessons?filters[course][documentId][$eq]=${ownCourseId}&pagination[pageSize]=1`,
+      { headers: { Authorization: `Bearer ${tokens.instructor}` } },
+    )
+  ).json();
+  ownLessonId = lessons.data?.[0]?.documentId ?? '';
 }, 30_000);
 
 type Case = {
@@ -103,9 +115,19 @@ const CASES: Case[] = [
   { role: 'instructor', method: 'PUT', path: () => `/api/courses/${ownCourseId}`, body: { data: { lessonProgression: 'not-a-mode' } }, expect: 400 },
   { role: 'admin', method: 'PUT', path: () => `/api/courses/${ownCourseId}`, body: { data: { lessonProgression: 'free' } }, expect: 200 },
 
-  // quiz isolation
+  // quiz isolation — reads are manager-only AND owner-scoped for instructors
   { role: 'student', method: 'GET', path: () => `/api/quizzes/${quizId}`, expect: 403 },
+  { role: 'anon', method: 'GET', path: () => '/api/quizzes', expect: [401, 403] },
+  { role: 'student', method: 'GET', path: () => '/api/quizzes', expect: 403 },
+  { role: 'instructor2', method: 'GET', path: () => `/api/quizzes/${quizId}`, expect: 403 },
+  { role: 'instructor', method: 'GET', path: () => `/api/quizzes/${quizId}`, expect: 200 },
   { role: 'instructor2', method: 'PUT', path: () => `/api/quizzes/${quizId}`, body: { data: { title: 'x' } }, expect: 403 },
+
+  // lesson isolation — same shape: manager-only, owner-scoped for instructors
+  { role: 'anon', method: 'GET', path: () => '/api/lessons', expect: [401, 403] },
+  { role: 'student', method: 'GET', path: () => '/api/lessons', expect: 403 },
+  { role: 'instructor2', method: 'GET', path: () => `/api/lessons/${ownLessonId}`, expect: 403 },
+  { role: 'instructor', method: 'GET', path: () => `/api/lessons/${ownLessonId}`, expect: 200 },
 
   // enrollment / learning is student-only
   { role: 'instructor', method: 'GET', path: () => '/api/enrollments/me', expect: 403 },
@@ -151,4 +173,39 @@ describe(`permission matrix @ ${BASE}`, () => {
       else expect(status).toBe(c.expect);
     });
   }
+
+  // Status codes can't show list scoping (200 either way) — assert the body.
+  // instructor2 must not see instructor1's quiz / lessons even when they ask
+  // for that course by documentId.
+  const asJson = async (role: string, path: string) => {
+    const headers: Record<string, string> = {};
+    if (tokens[role]) headers.Authorization = `Bearer ${tokens[role]}`;
+    return (await fetch(`${BASE}${path}`, { headers })).json();
+  };
+
+  it('instructor2 GET /api/quizzes?filters[course]={own} → empty (owner scope)', async () => {
+    const body = await asJson(
+      'instructor2',
+      `/api/quizzes?filters[course][documentId][$eq]=${ownCourseId}&pagination[pageSize]=50`,
+    );
+    expect(Array.isArray(body.data)).toBe(true);
+    expect(body.data).toHaveLength(0);
+  });
+
+  it('instructor2 GET /api/lessons?filters[course]={own} → empty (owner scope)', async () => {
+    const body = await asJson(
+      'instructor2',
+      `/api/lessons?filters[course][documentId][$eq]=${ownCourseId}&pagination[pageSize]=50`,
+    );
+    expect(Array.isArray(body.data)).toBe(true);
+    expect(body.data).toHaveLength(0);
+  });
+
+  it('instructor GET /api/lessons?filters[course]={own} → sees own lessons', async () => {
+    const body = await asJson(
+      'instructor',
+      `/api/lessons?filters[course][documentId][$eq]=${ownCourseId}&pagination[pageSize]=50`,
+    );
+    expect(body.data.length).toBeGreaterThan(0);
+  });
 });

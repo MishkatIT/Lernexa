@@ -25,13 +25,17 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
     const sanitized = await self.sanitizeQuery(ctx);
     const type = ctx.state.user?.role?.type;
 
-    const filters =
-      type === 'instructor'
-        ? {
-            ...((sanitized.filters as Record<string, unknown>) ?? {}),
-            course: { instructor: { id: { $eq: ctx.state.user.id } } }, // forced last
-          }
-        : sanitized.filters;
+    // Composed with `$and`, not a shallow spread: the manage UI sends
+    // `filters[course][documentId]` to list one course's lessons, and that
+    // clause must survive alongside the forced owner scope rather than be
+    // overwritten by it (mirrors course.find).
+    const and: unknown[] = [];
+    const base = (sanitized.filters as Record<string, unknown>) ?? {};
+    if (Object.keys(base).length > 0) and.push(base);
+    if (type === 'instructor') {
+      and.push({ course: { instructor: { id: { $eq: ctx.state.user.id } } } });
+    }
+    const filters = and.length > 0 ? { $and: and } : {};
 
     const { results, pagination } = await strapi
       .service(UID)
