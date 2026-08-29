@@ -29,8 +29,25 @@ let otherCourseId = '';
 let quizId = '';
 let ownLessonId = '';
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * fetch that waits out a 429 and retries (up to 6 times). Strapi's
+ * users-permissions plugin rate-limits `/api/auth/local` independently of our
+ * own write limiter, so a suite run alongside the other integration files can
+ * see a burst 429 on login — this keeps it from turning into a spurious failure.
+ */
+async function retryFetch(url: string, init?: RequestInit): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, init);
+    if (res.status !== 429 || attempt >= 6) return res;
+    const retryAfter = Number(res.headers.get('retry-after')) || 3;
+    await sleep(Math.min(retryAfter, 20) * 1000 + 250);
+  }
+}
+
 async function login(email: string) {
-  const res = await fetch(`${BASE}/api/auth/local`, {
+  const res = await retryFetch(`${BASE}/api/auth/local`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ identifier: email, password: PASSWORD }),
@@ -48,7 +65,7 @@ async function call(
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   const token = tokens[role];
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await retryFetch(`${BASE}${path}`, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
@@ -62,16 +79,26 @@ beforeAll(async () => {
   }
 
   // Resolve a course owned by `instructor` and one owned by `instructor2`.
-  const list = await (await fetch(`${BASE}/api/courses?pagination[pageSize]=50`)).json();
+  const list = await (
+    await retryFetch(`${BASE}/api/courses?pagination[pageSize]=100`)
+  ).json();
   const react = list.data.find((c: { title: string }) => c.title === 'React Fundamentals');
   const api = list.data.find((c: { title: string }) => c.title === 'API Design Basics');
   ownCourseId = react?.documentId ?? '';
   otherCourseId = api?.documentId ?? '';
 
+  if (!ownCourseId || !otherCourseId) {
+    throw new Error(
+      'permission-matrix: could not resolve the seeded fixture courses ' +
+        '("React Fundamentals" / "API Design Basics"). Run `npm run seed` and ' +
+        'make sure Strapi is up (it may have been mid-reload).',
+    );
+  }
+
   // A quiz + a lesson that belong to `instructor`'s own course — the fixtures
   // the cross-instructor read cases probe.
   const quizzes = await (
-    await fetch(
+    await retryFetch(
       `${BASE}/api/quizzes?filters[course][documentId][$eq]=${ownCourseId}&pagination[pageSize]=1`,
       { headers: { Authorization: `Bearer ${tokens.instructor}` } },
     )
@@ -79,13 +106,13 @@ beforeAll(async () => {
   quizId = quizzes.data?.[0]?.documentId ?? '';
 
   const lessons = await (
-    await fetch(
+    await retryFetch(
       `${BASE}/api/lessons?filters[course][documentId][$eq]=${ownCourseId}&pagination[pageSize]=1`,
       { headers: { Authorization: `Bearer ${tokens.instructor}` } },
     )
   ).json();
   ownLessonId = lessons.data?.[0]?.documentId ?? '';
-}, 30_000);
+}, 120_000);
 
 type Case = {
   role: string;
@@ -143,6 +170,27 @@ const CASES: Case[] = [
   { role: 'instructor', method: 'POST', path: () => `/api/courses/${ownCourseId}/enrollments`, body: { emails: [] }, expect: 400 },
   { role: 'instructor', method: 'POST', path: () => `/api/courses/${ownCourseId}/enrollments`, body: { emails: ['ghost@lernexa.test'] }, expect: 200 },
   { role: 'content-manager', method: 'POST', path: () => `/api/courses/${otherCourseId}/enrollments/remove`, body: { studentIds: [999999] }, expect: 200 },
+
+  // course / lesson / quiz visibility toggle (D-039) — manager role + ownership,
+  // same gate as edit/delete. Each owner pair runs unpublish→publish in order so
+  // the seed fixtures are left published (the suite stays idempotent).
+  { role: 'student', method: 'POST', path: () => `/api/courses/${ownCourseId}/publish`, expect: 403 },
+  { role: 'anon', method: 'POST', path: () => `/api/courses/${ownCourseId}/publish`, expect: [401, 403] },
+  { role: 'instructor2', method: 'POST', path: () => `/api/courses/${ownCourseId}/publish`, expect: 403 },
+  { role: 'instructor2', method: 'POST', path: () => `/api/courses/${ownCourseId}/unpublish`, body: { mode: 'draft' }, expect: 403 },
+  { role: 'instructor', method: 'POST', path: () => `/api/courses/${ownCourseId}/unpublish`, body: { mode: 'enrolled_only' }, expect: 200 },
+  { role: 'instructor', method: 'POST', path: () => `/api/courses/${ownCourseId}/publish`, expect: 200 },
+  { role: 'content-manager', method: 'POST', path: () => `/api/courses/${otherCourseId}/publish`, expect: 200 },
+
+  { role: 'student', method: 'POST', path: () => `/api/lessons/${ownLessonId}/unpublish`, expect: 403 },
+  { role: 'instructor2', method: 'POST', path: () => `/api/lessons/${ownLessonId}/unpublish`, expect: 403 },
+  { role: 'instructor', method: 'POST', path: () => `/api/lessons/${ownLessonId}/unpublish`, expect: 200 },
+  { role: 'instructor', method: 'POST', path: () => `/api/lessons/${ownLessonId}/publish`, expect: 200 },
+
+  { role: 'student', method: 'POST', path: () => `/api/quizzes/${quizId}/unpublish`, expect: 403 },
+  { role: 'instructor2', method: 'POST', path: () => `/api/quizzes/${quizId}/unpublish`, expect: 403 },
+  { role: 'instructor', method: 'POST', path: () => `/api/quizzes/${quizId}/unpublish`, expect: 200 },
+  { role: 'instructor', method: 'POST', path: () => `/api/quizzes/${quizId}/publish`, expect: 200 },
 
   // blog writes
   { role: 'instructor', method: 'POST', path: () => '/api/blog-posts', body: { data: { title: 'x' } }, expect: 403 },
