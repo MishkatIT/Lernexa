@@ -504,6 +504,20 @@ export interface ApiBlogPostBlogPost extends Struct.CollectionTypeSchema {
       'plugin::users-permissions.user'
     >;
     body: Schema.Attribute.Text;
+    category: Schema.Attribute.Enumeration<
+      [
+        'engineering',
+        'product',
+        'programming',
+        'web-development',
+        'backend',
+        'frontend',
+        'ai',
+        'career',
+        'tutorials',
+        'technology',
+      ]
+    >;
     coverImageUrl: Schema.Attribute.String;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -516,6 +530,10 @@ export interface ApiBlogPostBlogPost extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
     slug: Schema.Attribute.UID<'title'>;
+    subtitle: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 220;
+      }>;
     title: Schema.Attribute.String & Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -1246,6 +1264,10 @@ export interface PluginUsersPermissionsUser
   };
   attributes: {
     avatarUrl: Schema.Attribute.Text;
+    bio: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 280;
+      }>;
     blocked: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     blockedAt: Schema.Attribute.DateTime & Schema.Attribute.Private;
     blockedBy: Schema.Attribute.Relation<

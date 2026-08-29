@@ -5,8 +5,10 @@ const isDev = process.env.NODE_ENV === "development";
 /**
  * Content-Security-Policy.
  *
- * The app renders no third-party scripts and no user-supplied HTML (blog and
- * lesson bodies render as plain text), so the XSS surface is small. We still
+ * The app renders no third-party scripts and no user-supplied HTML — the blog
+ * body is Markdown rendered to React elements with no raw-HTML pass-through
+ * (react-markdown, no rehype-raw); lesson bodies are plain text. So the XSS
+ * surface is small. We still
  * lock every directive down; `script-src`/`style-src` keep `'unsafe-inline'`
  * because Next injects inline hydration scripts and styled output — moving to a
  * per-request nonce is the intended hardening step if the threat model grows.

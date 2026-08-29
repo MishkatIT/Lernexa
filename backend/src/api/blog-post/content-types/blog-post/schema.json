@@ -23,6 +23,25 @@
     "body": {
       "type": "text"
     },
+    "subtitle": {
+      "type": "string",
+      "maxLength": 220
+    },
+    "category": {
+      "type": "enumeration",
+      "enum": [
+        "engineering",
+        "product",
+        "programming",
+        "web-development",
+        "backend",
+        "frontend",
+        "ai",
+        "career",
+        "tutorials",
+        "technology"
+      ]
+    },
     "coverImageUrl": {
       "type": "string"
     },

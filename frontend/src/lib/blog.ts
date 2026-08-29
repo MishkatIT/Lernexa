@@ -3,17 +3,39 @@ import "server-only";
 import { strapiFetch, StrapiError } from "./strapi";
 import { getToken } from "./session";
 
+export type PostAuthor = {
+  fullName: string | null;
+  avatarUrl?: string | null;
+  bio?: string | null;
+};
+
 export type PostListItem = {
   documentId: string;
   title: string;
   slug: string | null;
+  subtitle: string | null;
+  category: string | null;
+  excerpt: string;
+  readingMinutes: number;
   coverImageUrl: string | null;
   publishedAt: string | null;
   createdAt: string | null;
-  author: { fullName: string | null } | null;
+  author: PostAuthor | null;
 };
 
-export type Post = PostListItem & { body: string | null };
+export type Post = {
+  documentId: string;
+  title: string;
+  slug: string | null;
+  subtitle: string | null;
+  category: string | null;
+  body: string | null;
+  readingMinutes: number;
+  coverImageUrl: string | null;
+  publishedAt: string | null;
+  createdAt: string | null;
+  author: PostAuthor | null;
+};
 
 export type PagedPosts = {
   items: PostListItem[];
@@ -22,22 +44,46 @@ export type PagedPosts = {
   total: number;
 };
 
+type ListOptions = { q?: string; category?: string; pageSize?: number };
+
+const EMPTY_PAGINATION = { page: 1, pageCount: 1, total: 0 };
+
 export async function listPublishedPosts(
   page = 1,
-  q?: string,
-  pageSize = 10,
+  { q, category, pageSize = 12 }: ListOptions = {},
 ): Promise<PagedPosts> {
   const qs = new URLSearchParams({
     "pagination[page]": String(Math.max(1, page)),
     "pagination[pageSize]": String(pageSize),
   });
   if (q?.trim()) qs.set("q", q.trim());
+  if (category?.trim()) qs.set("category", category.trim());
+
   const res = await strapiFetch<{
     data: PostListItem[];
     meta?: { pagination?: { page: number; pageCount: number; total: number } };
   }>(`/api/blog-posts?${qs}`, { cache: "no-store" });
-  const p = res.meta?.pagination ?? { page: 1, pageCount: 1, total: 0 };
+
+  const p = res.meta?.pagination ?? EMPTY_PAGINATION;
   return { items: res.data, page: p.page, pageCount: p.pageCount, total: p.total };
+}
+
+/** Total published-post count per category, for the topic bar. One light query
+ *  (no bodies, pageSize 1) per — the loop is small and fixed. */
+export async function countByCategory(
+  category: string,
+): Promise<number> {
+  try {
+    const res = await strapiFetch<{
+      meta?: { pagination?: { total: number } };
+    }>(
+      `/api/blog-posts?category=${encodeURIComponent(category)}&pagination[pageSize]=1`,
+      { cache: "no-store" },
+    );
+    return res.meta?.pagination?.total ?? 0;
+  } catch {
+    return 0;
+  }
 }
 
 export async function getPublishedPost(slug: string): Promise<Post | null> {
@@ -55,6 +101,30 @@ export async function getPublishedPost(slug: string): Promise<Post | null> {
   } catch {
     return null;
   }
+}
+
+/** "You might also like" — same category, newest first, current post removed.
+ *  Falls back to the latest posts so the section is never empty on a thin
+ *  category. */
+export async function getRelatedPosts(
+  category: string | null,
+  excludeSlug: string | null,
+  limit = 3,
+): Promise<PostListItem[]> {
+  const pick = (items: PostListItem[]) =>
+    items.filter((p) => p.slug !== excludeSlug).slice(0, limit);
+
+  if (category) {
+    const { items } = await listPublishedPosts(1, {
+      category,
+      pageSize: limit + 1,
+    });
+    const related = pick(items);
+    if (related.length >= limit) return related;
+  }
+
+  const { items } = await listPublishedPosts(1, { pageSize: limit + 4 });
+  return pick(items);
 }
 
 /** Manager list — includes drafts (status=draft returns every entry's draft).

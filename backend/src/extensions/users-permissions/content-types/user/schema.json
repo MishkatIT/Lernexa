@@ -71,6 +71,10 @@
     "avatarUrl": {
       "type": "text"
     },
+    "bio": {
+      "type": "string",
+      "maxLength": 280
+    },
     "blockedReason": {
       "type": "text",
       "private": true
