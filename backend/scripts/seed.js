@@ -278,18 +278,14 @@ const EMPTY_COURSE_TITLES = new Set([
   'Debugging Under Pressure',
 ]);
 
-// Course visibility demo (D-039). Everything else is `published`.
+// Course visibility (D-039). Seed everything `published` by default — courses,
+// lessons and quizzes are all live out of the box. Populate these sets to bring
+// back the draft / enrolled_only / hidden demo fixtures.
 //   draft         — built out but not launched; no roster, invisible to students.
 //   enrolled_only — a closed cohort still finishing; keeps its roster, gone from
 //                   the catalogue, no new enrolments.
-const DRAFT_COURSE_TITLES = new Set([
-  'Browser Rendering Internals',
-  'API Security Essentials',
-]);
-const ENROLLED_ONLY_COURSE_TITLES = new Set([
-  'React Performance in Practice',
-  'Generics You Will Actually Use',
-]);
+const DRAFT_COURSE_TITLES = new Set([]);
+const ENROLLED_ONLY_COURSE_TITLES = new Set([]);
 const courseStatusFor = (title) =>
   DRAFT_COURSE_TITLES.has(title)
     ? 'draft'
@@ -297,14 +293,11 @@ const courseStatusFor = (title) =>
       ? 'enrolled_only'
       : 'published';
 
-// One hidden lesson in two otherwise-published courses, so the "Hidden" state is
-// visible in the manage UI and drops out of student progress totals.
-const isHiddenLesson = (courseTitle, idx, count) =>
-  (courseTitle === 'Advanced React Patterns' && idx === count - 1) ||
-  (courseTitle === 'Modern CSS Layout' && idx === 2);
+// Hidden-lesson demo fixture — disabled so every seeded lesson is published.
+const isHiddenLesson = (_courseTitle, _idx, _count) => false;
 
-// One course quiz starts hidden from students (attempts still allowed once shown).
-const HIDDEN_QUIZ_COURSE_TITLES = new Set(['Git Internals']);
+// Hidden-quiz demo fixture — disabled so every seeded quiz is published.
+const HIDDEN_QUIZ_COURSE_TITLES = new Set([]);
 
 // Courses that get a quiz. One per topic-ish; kept to a realistic subset.
 const QUIZ_COURSE_TITLES = new Set([

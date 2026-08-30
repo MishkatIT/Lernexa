@@ -40,6 +40,7 @@ export function SiteHeader({ user }: { user: NavUser }) {
     setLoggingOut(true);
     await fetch("/api/auth/logout", { method: "POST" });
     close();
+    window.dispatchEvent(new Event("lernexa:navigate"));
     router.push("/");
     router.refresh();
   }

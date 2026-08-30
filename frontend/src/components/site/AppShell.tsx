@@ -190,6 +190,7 @@ export function AppShell({
     setLoggingOut(true);
     await fetch("/api/auth/logout", { method: "POST" });
     setOpen(false);
+    window.dispatchEvent(new Event("lernexa:navigate"));
     router.push("/");
     router.refresh();
   }

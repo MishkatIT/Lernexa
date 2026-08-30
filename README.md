@@ -11,6 +11,13 @@ Strapi is the security boundary and the only thing that touches the database. Ne
 a server-rendered client that holds the session cookie and never exposes the JWT to the
 browser.
 
+## New here? Read the system overview
+
+**[`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md)** explains the whole system — the
+stack, architecture, RBAC, every feature, routes, API, data model, user flows,
+deployment, testing, security and technical decisions — in ~10–15 minutes, with diagrams
+and file references. [`docs/README.md`](docs/README.md) indexes the rest of the docs.
+
 ## Live
 
 | | URL |
@@ -90,20 +97,53 @@ npm run dev                 # http://localhost:3000
 
 ## Features completed
 
-Tracked against `docs/IMPLEMENTATION_CHECKLIST.md`.
+Every feature in the project spec — all **core features**, all **differentiator
+features**, and the full **4-role permission matrix** — is implemented and enforced on
+the backend.
 
-- [x] **Phase 0** — Monorepo + deploy skeleton _(both apps live on Railway + Vercel)_
-- [x] **Phase 1** — Brand + content types _(data model, four roles, IBM Plex + design tokens)_
-- [x] **Phase 2** — Auth + session _(httpOnly cookie, forced student role, role-aware redirect)_
-- [x] **Phase 3** — Courses, lessons, ownership _(4 enforcement layers, forced owner on create, 409 delete guards)_
-- [x] **Phase 4** — Enrollment, learning, progress _(derived progress, batched instructor table, lesson viewer, `progress.test.ts`)_
-- [x] **Phase 5** — Quiz + server-side grading _(isCorrect never leaves the server, pure gradeQuiz, snapshot attempts, grading.test.ts)_
-- [x] **Phase 6** — Admin panel + user blocking _(platform API, per-request block check, registrationEnabled gate, attention queue)_
-- [x] **Phase 7** — Blog, tests, seed _(published-only public blog, permission-matrix.test.ts, verify-auth.sh, idempotent seed)_
-- [x] **Phase 8** — Polish _(error / not-found / forbidden states, loading skeletons, toasts, README)_ · ship pending
-- [x] **Review pass** — audit log, instructor catalogue scope forced in the controller (D-034),
-  site-wide debounced server-side search (D-035), pagination-independent counts (D-036),
-  self-contained quiz-attempt review snapshot + `/results` page (D-037), second query-index migration
+### Core features
+
+| Feature | Where |
+|---|---|
+| Sign up / log in, a role per user | `frontend/src/app/api/auth/*`, `backend/src/extensions/users-permissions/` |
+| Role-based protected routes, **enforced on the backend** (not just hidden UI) | 4 layers — see _Role-based access_ below |
+| Course create / edit / delete per the matrix (Content Manager platform-wide, Instructor own only) | `backend/src/api/course/`, `frontend/src/app/manage/courses/` |
+| Lessons under a course — title + content, where content is text **or** a video URL | `backend/src/api/lesson/`, `frontend/.../manage/courses/[id]` |
+| Student browses courses and enrolls | `POST /api/enrollments/enroll`, `frontend/.../courses/[slug]` |
+| Enrolled courses shown separately under **"My courses"** | `/dashboard` → "My courses" section |
+| Student views lessons of enrolled courses **in sequence** | `/learn/[courseId]/[lessonId]` (order `ASC, id ASC`) |
+
+### Differentiator features
+
+| Feature | Notes |
+|---|---|
+| **Progress tracking** — mark a lesson complete; per-course %; accurate per student; persists across refreshes | Progress is **derived** from `LessonCompletion` rows (no stored percentage), computed by the pure `computeProgress()`. Persisted in Postgres. |
+| **Quiz + auto-grading** — MCQ (question + options + correct answer); instant score on submit; result stored and viewable later | Graded server-side by the pure `gradeQuiz()`; the answer key (`isCorrect`) never reaches the browser. Each attempt stores a frozen question/answer snapshot — see `/results`. |
+| **Admin panel** — admin-only dashboard; see all users and change roles; manage all courses / lessons / blog posts; basic platform stats | `/admin` — total users per role, total courses, total enrollments, plus an attention queue and block/unblock with an audit trail. |
+| **Blog** — Content Manager & Admin write / edit / publish / delete; draft vs published; anyone reads the published list and a single post; Admin controls every post | Strapi's native Draft & Publish. Non-managers are forced to published-only **server-side** (a `?status=draft` in the query string is ignored). |
+
+### Role-based access
+
+Assume the frontend does not exist — every rule holds against raw `curl` with a valid
+token. Four enforcement layers:
+
+1. **Account state** — a global middleware re-checks `blocked` on every authenticated request.
+2. **Role** — a `ROLE_GRANTS` map in `backend/src/index.ts`, applied and reconciled on every boot. Deny by default.
+3. **Resource ownership** — route policies (`is-course-owner`, `is-lesson-owner`, `is-quiz-owner`); lesson / quiz / progress ownership resolves through `course.instructor`.
+4. **Query scoping** — list controllers force the ownership filter **last**, so a client `?filters=` cannot widen it.
+
+Proof: `backend/tests/permission-matrix.test.ts` (the matrix encoded as data) and
+`backend/scripts/verify-auth.sh` (8 `curl` checks against the deployed API).
+
+> **Role assignment:** public sign-up always creates a **student** — accepting a `role`
+> from an unauthenticated request would be privilege escalation. An **admin** promotes
+> users to instructor / content-manager / admin from the admin panel. The demo accounts
+> below cover all four roles.
+
+Build phases, the full API map, the data model and every design decision:
+[`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md),
+[`docs/IMPLEMENTATION_CHECKLIST.md`](docs/IMPLEMENTATION_CHECKLIST.md),
+[`docs/DECISIONS.md`](docs/DECISIONS.md).
 
 ## Demo credentials
 
@@ -135,10 +175,25 @@ Full details: [`backend/scripts/SEED.md`](backend/scripts/SEED.md).
 
 ```bash
 cd backend
-npm test                                   # vitest: grading + progress + permission matrix
-TEST_API_URL=https://your.railway.app npm test   # run the matrix against production
-bash scripts/verify-auth.sh [BASE_URL]      # 9 authorization checks with curl
+npm install
+
+# Pure-function unit tests — no backend needed (grading, progress, progression, reading)
+npm test
+
+# Full suite — also runs the integration suites, which need a running, SEEDED backend
+npm run seed
+RATE_LIMIT_ENABLED=false npm test
+#   …or against the deployed API:
+TEST_API_URL=https://your.railway.app RATE_LIMIT_ENABLED=false npm test
+
+# 8 authorization checks with curl
+bash scripts/verify-auth.sh [BASE_URL]
 ```
+
+Suites: `permission-matrix`, `auth`, `course-lifecycle`, `blog-lifecycle`, `learning`,
+`admin-platform`, `isolation` (integration, hit a running Strapi) and `grading`,
+`progress`, `progression`, `reading` (pure functions). Details:
+[`backend/tests/README.md`](backend/tests/README.md).
 
 ## Known limitations
 
@@ -146,7 +201,7 @@ Documented deliberately (see `docs/DECISIONS.md`):
 
 - No refresh-token rotation — fixed-lifetime JWT; logout clears the cookie but does not revoke server-side.
 - Login/register rate limiting is only Strapi's U&P default (10 requests / 60s per IP) — no stricter per-account throttling or lockout.
-- No E2E tests — backend authorization and business-logic unit tests were prioritised for the timeline.
+- No browser / UI E2E tests (Playwright / Cypress). Backend authorization and business logic are covered by integration + pure-function suites (see [Tests](#tests)); the frontend has no component tests — a deliberate trade-off for the timeline.
 - No image uploads — cover images are URLs; Railway's filesystem is ephemeral.
 - Lesson ordering is a manual integer, not drag-and-drop.
 - Quizzes are single-answer MCQ only.

@@ -121,9 +121,6 @@ const SAFE_POPULATE = {
   },
 };
 
-/** Only published lessons count a course as "non-empty" for the public catalogue. */
-const PUBLISHED_LESSON = { lessons: { published: { $eq: true } } };
-
 /**
  * Flip a course's `status` and write one audit row. Shared by `publish` and
  * `unpublish`; the route policies (has-role + is-course-owner) have already
@@ -163,9 +160,9 @@ async function setCourseStatus(
  *
  * - find / findOne: server-controlled population + explicit output shape, so a
  *   student can never pull lesson `content` through a course query
- *   (CVE-2026-27886 is this class). The public catalogue also hides courses
- *   with zero published lessons and any course not `published` — forced
- *   filters, applied last (D-039).
+ *   (CVE-2026-27886 is this class). The public catalogue shows every
+ *   `published` course — including one with no lessons or quiz yet — and hides
+ *   any course not `published`, a forced filter applied last (D-039, D-040).
  * - create: an instructor's course is forced to instructor = ctx.state.user.id.
  *   A body-supplied `instructor` is ignored. New courses start as `draft`.
  * - publish / unpublish: owner-gated on the route; flips `status` and audits.
@@ -210,7 +207,7 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
       // reaches this branch (no token), so `enrolled_only` stays unlisted.
       and.push({
         $or: [
-          { $and: [{ status: { $eq: 'published' } }, PUBLISHED_LESSON] },
+          { status: { $eq: 'published' } },
           {
             $and: [
               { status: { $eq: 'enrolled_only' } },
@@ -220,11 +217,10 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
         ],
       });
     } else if (!isManager) {
-      // Public catalogue (D-039): published courses only, and only those with
-      // at least one published lesson. Both are WHERE clauses, so pagination and
-      // `total` track the visible set.
+      // Public catalogue (D-039, D-040): `published` is the only gate. A
+      // published course with no lessons or quiz still shows. It's a WHERE
+      // clause, so pagination and `total` track the visible set.
       and.push({ status: { $eq: 'published' } });
-      and.push(PUBLISHED_LESSON);
     }
 
     const filters = and.length > 0 ? { $and: and } : {};

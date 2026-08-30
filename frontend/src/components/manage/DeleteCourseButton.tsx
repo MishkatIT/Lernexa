@@ -31,6 +31,7 @@ export function DeleteCourseButton({
       return;
     }
     toast(`“${title}” deleted`);
+    window.dispatchEvent(new Event("lernexa:navigate"));
     router.push("/manage/courses");
     router.refresh();
   }

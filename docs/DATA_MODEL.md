@@ -358,16 +358,18 @@ UX, the 409 is the rule. This is the same pattern as the block guards.
 
 ## Catalogue visibility rules
 
-Two filters on the public course list, both server-side:
+The public course list is server-filtered:
 
-1. **A course with zero lessons is not listed.** An empty course in the public catalogue
-   is a broken experience — a student enrolls and lands on nothing. One relation filter.
+1. **Only a `published` course is listed** (D-039). Since D-040 this is the *only*
+   catalogue gate — a published course with zero lessons and no quiz still shows.
+   Publishing is an explicit owner action, so it carries the intent to list;
+   content-readiness is surfaced as work-to-do in the manage worklist and admin
+   attention queue, not enforced as a hidden publish precondition.
 2. Already-enrolled students see "Continue", not "Enroll" (see DESIGN_SYSTEM.md screen 6).
 
-Rule 1 is deliberately a *filter*, not a `published` flag on Course. A flag would need a
-publish workflow, a UI, and a state nobody manages; the filter derives visibility from
-whether the course is actually usable. Same principle as deriving progress rather than
-storing it.
+The earlier "zero-lesson courses are filtered out" heuristic (a relation filter, no
+`published` flag) was replaced by the explicit `status` field in D-039 and fully
+retired in D-040.
 
 ## Data integrity checks
 
@@ -376,7 +378,7 @@ invariants the data model claims to hold:
 
 | Check | Why it matters |
 |---|---|
-| Courses with zero lessons | Invisible in the catalogue by rule 1 above, but the author should know |
+| Courses with zero lessons | Listed if published (D-040), but a shell course is work-to-do the author should know about |
 | **Quizzes where no option is marked correct** | **Real bug** — every student silently scores zero on that question |
 | Blog drafts older than 7 days | Stalled content pipeline |
 | Blocked users | Moderation load |

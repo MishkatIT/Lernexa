@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { publishCourse, unpublishCourse } from "@/actions/courses";
 import type { CourseStatus } from "@/lib/courses";
@@ -41,23 +41,28 @@ export function CoursePublishControl({
 }) {
   const router = useRouter();
   const { toast } = useToast();
-  const [busy, setBusy] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [refreshing, startRefresh] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Stay disabled until the refreshed server data has actually rendered — not
+  // just until the mutation resolves — so the control never looks ready while
+  // it's still showing the old status.
+  const busy = submitting || refreshing;
 
   async function run(
     fn: () => Promise<{ ok: boolean; error?: string }>,
     okMessage: string,
   ) {
-    setBusy(true);
+    setSubmitting(true);
     setError(null);
     const res = await fn();
-    setBusy(false);
+    setSubmitting(false);
     if (!res.ok) {
       setError(res.error ?? "Something went wrong");
       return;
     }
     toast(okMessage);
-    router.refresh();
+    startRefresh(() => router.refresh());
   }
 
   const meta = META[status];
@@ -82,6 +87,8 @@ export function CoursePublishControl({
         {status !== "published" ? (
           <Button
             disabled={busy}
+            loading={busy}
+            loadingLabel="Working…"
             onClick={() =>
               run(() => publishCourse(documentId), "Course published")
             }
@@ -94,6 +101,8 @@ export function CoursePublishControl({
           <Button
             variant="secondary"
             disabled={busy}
+            loading={busy}
+            loadingLabel="Working…"
             onClick={() =>
               run(
                 () => unpublishCourse(documentId, "enrolled_only"),
@@ -109,6 +118,8 @@ export function CoursePublishControl({
           <Button
             variant="ghost"
             disabled={busy}
+            loading={busy}
+            loadingLabel="Working…"
             onClick={() =>
               run(
                 () => unpublishCourse(documentId, "draft"),

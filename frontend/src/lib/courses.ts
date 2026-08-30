@@ -61,9 +61,10 @@ type PagedResponse<T> = {
 
 const fallbackPagination = { page: 1, pageCount: 1, total: 0 };
 
-/** Public catalogue, paginated. Server-forced: courses with zero lessons are
- *  filtered out by the controller for non-managers. `q` searches title +
- *  description in Strapi, so it spans every page and `total` reflects it. */
+/** Public catalogue, paginated. Server-forced: non-managers only ever see
+ *  `published` courses (D-040 — a published course with no lessons still shows).
+ *  `q` searches title + description in Strapi, so it spans every page and
+ *  `total` reflects it. */
 export async function listCatalogue(
   page = 1,
   q?: string,

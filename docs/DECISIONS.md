@@ -525,9 +525,9 @@ scheduling — no `publishAt`, no cron) and **not** D-025 (still no draft → re
 is a single-actor visibility toggle, the same two-state idea D-006 already
 accepted for the blog, extended to a third "enrolled-only" state because a course
 has a roster a blog post doesn't. It also supersedes the "catalogue hides empty
-courses" heuristic (Tier 2.5) as the *primary* visibility control — that filter
-stays as a secondary guard so a `published` course with no published lessons
-still can't reach the catalogue.
+courses" heuristic (Tier 2.5) as the *primary* visibility control. *(Amended by
+D-040: the "empty course" secondary guard was dropped — `published` is now the
+only catalogue gate.)*
 
 **Tradeoff:** `findOne` does one extra enrolment read for the `enrolled_only`
 case; `/learn` and the progress paths each carry one more `where` clause. Public
@@ -538,6 +538,32 @@ caller's token so the backend can resolve visibility per role.
 no way to retire a course from the catalogue without also locking out the cohort
 mid-way. A per-lesson `draft`/`review`/`published` enum — that's D-025's workflow
 with extra steps.
+
+### D-040 — `published` is the only catalogue gate; the "empty course" filter is gone
+
+**Decision:** a course's `status` alone decides whether it reaches the public
+catalogue. The extra "…and has at least one published lesson" clause that D-039
+kept as a secondary guard (`PUBLISHED_LESSON` in `course.find`) is removed. A
+`published` course with zero lessons and no quiz now shows on `/courses` and in a
+signed-in student's catalogue, exactly like any other published course.
+
+**Why:** publishing is now an explicit, deliberate owner action (D-039). When the
+owner flips a course to `published`, that *is* the intent to list it — the
+catalogue silently overriding that because the lesson count is 0 was surprising
+and hard to diagnose from the manage screen. Content-readiness is the owner's
+call, surfaced through the manage worklist ("courses with no lessons"), not a
+hidden publish precondition.
+
+**Scope:** only the catalogue `find` filter changed. Unchanged: `SAFE_POPULATE`
+still ships only *published* lessons in a course payload; `/learn`, progression
+gates and every progress denominator still ignore unpublished lessons; the
+course detail page still shows "This course has no lessons yet" and withholds the
+enrol button when the curriculum is empty; enrolment itself was never
+lesson-gated on the server.
+
+**Tradeoff:** an instructor can publish a shell course. The manage worklist and
+admin panel still flag it, so it's visible as work-to-do rather than silently
+hidden from students.
 
 ---
 

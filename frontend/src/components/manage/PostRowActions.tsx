@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { publishPost, unpublishPost, deletePost } from "@/actions/blog";
 import { Button } from "@/components/ui/Button";
@@ -17,25 +17,29 @@ export function PostRowActions({
 }) {
   const router = useRouter();
   const { toast } = useToast();
-  const [busy, setBusy] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [refreshing, startRefresh] = useTransition();
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Held disabled through the post-mutation refresh so the row can't be acted
+  // on again while it still shows the stale published/draft state.
+  const busy = submitting || refreshing;
 
   async function run(
     fn: () => Promise<{ ok: boolean; error?: string }>,
     okMessage: string,
   ) {
-    setBusy(true);
+    setSubmitting(true);
     setError(null);
     const res = await fn();
-    setBusy(false);
+    setSubmitting(false);
     if (!res.ok) {
       setError(res.error ?? "Something went wrong");
       return;
     }
     toast(okMessage);
     setConfirming(false);
-    router.refresh();
+    startRefresh(() => router.refresh());
   }
 
   if (confirming) {
@@ -73,6 +77,8 @@ export function PostRowActions({
         variant="ghost"
         size="sm"
         disabled={busy}
+        loading={busy}
+        loadingLabel="Working…"
         onClick={() =>
           run(
             () => (published ? unpublishPost(documentId) : publishPost(documentId)),

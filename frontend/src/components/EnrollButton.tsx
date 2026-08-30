@@ -25,6 +25,9 @@ export function EnrollButton({ courseId }: { courseId: string }) {
             setError(res.error);
             return;
           }
+          // Keep `pending` true — we're navigating away; the button should stay
+          // disabled until this page unmounts.
+          window.dispatchEvent(new Event("lernexa:navigate"));
           router.push(`/learn/${courseId}`);
           router.refresh();
         }}

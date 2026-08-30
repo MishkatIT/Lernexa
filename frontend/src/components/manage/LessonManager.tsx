@@ -105,8 +105,8 @@ export function LessonManager({
 
       {lessons.length === 0 && !adding ? (
         <p className="text-body text-ink-500">
-          No lessons yet. A course with no lessons stays out of the public
-          catalogue.
+          No lessons yet. Add lessons so enrolled students have something to
+          work through.
         </p>
       ) : null}
 
