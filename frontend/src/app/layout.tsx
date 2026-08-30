@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { NoFlashScript } from "@/components/theme/NoFlashScript";
 import { ToastProvider } from "@/components/ui/Toast";
 import { NavigationProgress } from "@/components/site/NavigationProgress";
+import { UnsavedChangesProvider } from "@/components/site/UnsavedChangesGuard";
 
 // One superfamily, three jobs: Sans for UI, Serif for long-form reading
 // (lesson + blog body), Mono for ids, timestamps and code.
@@ -64,10 +65,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         className="flex min-h-dvh flex-col overflow-x-clip"
       >
         <ThemeProvider>
-          <Suspense fallback={null}>
-            <NavigationProgress />
-          </Suspense>
-          <ToastProvider>{children}</ToastProvider>
+          <UnsavedChangesProvider>
+            <Suspense fallback={null}>
+              <NavigationProgress />
+            </Suspense>
+            <ToastProvider>{children}</ToastProvider>
+          </UnsavedChangesProvider>
         </ThemeProvider>
       </body>
     </html>

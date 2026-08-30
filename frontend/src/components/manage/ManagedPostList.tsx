@@ -6,11 +6,21 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PostRowActions } from "@/components/manage/PostRowActions";
+import { postBadgeState, type LivePublishState } from "@/lib/blog-status";
 
 type Item = {
   documentId: string;
   title: string;
   publishedAt: string | null;
+  lastPublishedAt: string | null;
+  live: LivePublishState | null;
+};
+
+const BADGE = {
+  published: { tone: "success" as const, label: "Published" },
+  modified: { tone: "warning" as const, label: "Unpublished changes" },
+  unpublished: { tone: "warning" as const, label: "Unpublished" },
+  draft: { tone: "neutral" as const, label: "Draft" },
 };
 
 /**
@@ -54,28 +64,29 @@ export function ManagedPostList({ posts }: { posts: Item[] }) {
         </div>
       ) : (
         <ul className="mt-4 flex flex-col gap-2">
-          {filtered.map((p) => (
-            <li key={p.documentId}>
-              <Card className="flex items-center justify-between gap-3 px-4 py-3">
-                <span className="flex min-w-0 items-center gap-3">
-                  <Link
-                    href={`/manage/blog/${p.documentId}`}
-                    className="truncate text-body font-medium text-ink-900 hover:underline"
-                  >
-                    {p.title}
-                  </Link>
-                  <Badge tone={p.publishedAt ? "success" : "neutral"}>
-                    {p.publishedAt ? "Published" : "Draft"}
-                  </Badge>
-                </span>
-                <PostRowActions
-                  documentId={p.documentId}
-                  title={p.title}
-                  published={Boolean(p.publishedAt)}
-                />
-              </Card>
-            </li>
-          ))}
+          {filtered.map((p) => {
+            const badge = BADGE[postBadgeState(p)];
+            return (
+              <li key={p.documentId}>
+                <Card className="flex items-center justify-between gap-3 px-4 py-3">
+                  <span className="flex min-w-0 items-center gap-3">
+                    <Link
+                      href={`/manage/blog/${p.documentId}`}
+                      className="truncate text-body font-medium text-ink-900 hover:underline"
+                    >
+                      {p.title}
+                    </Link>
+                    <Badge tone={badge.tone}>{badge.label}</Badge>
+                  </span>
+                  <PostRowActions
+                    documentId={p.documentId}
+                    title={p.title}
+                    published={Boolean(p.publishedAt)}
+                  />
+                </Card>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

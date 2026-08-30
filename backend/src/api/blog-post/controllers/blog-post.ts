@@ -38,7 +38,63 @@ type BlogRow = {
   coverImageUrl: string | null;
   publishedAt: string | null;
   createdAt: string | null;
+  lastPublishedAt?: string | null;
   author?: BlogAuthor;
+};
+
+/**
+ * Draft-vs-live comparison (managers only). Native Draft & Publish keeps two
+ * rows per `documentId` — a draft and, when live, a published one. Editing after
+ * a publish touches only the draft. We report which of four states the post is
+ * in so the editor can say plainly "the draft matches what readers see" or list
+ * exactly what would change on publish.
+ *
+ *   never_published — no published row, none ever (lastPublishedAt is null)
+ *   unpublished     — no published row now, but it was live before (taken down)
+ *   live            — published row exists and the draft is identical to it
+ *   modified        — published row exists but the draft has unpublished edits
+ *
+ * Comparison is field-by-field on content only — a no-op re-save (which bumps
+ * `updatedAt`) must not read as "modified".
+ */
+const LIVE_COMPARE_FIELDS = [
+  'title',
+  'slug',
+  'subtitle',
+  'category',
+  'body',
+  'coverImageUrl',
+] as const;
+
+type LivePublishState = {
+  state: 'never_published' | 'unpublished' | 'live' | 'modified';
+  publishedAt: string | null;
+  lastPublishedAt: string | null;
+  changedFields: string[];
+};
+
+const sameFieldValue = (a: unknown, b: unknown): boolean =>
+  String(a ?? '') === String(b ?? '');
+
+const deriveLive = (draft: BlogRow, published: BlogRow | null): LivePublishState => {
+  const lastPublishedAt = draft.lastPublishedAt ?? null;
+  if (published) {
+    const changedFields = LIVE_COMPARE_FIELDS.filter(
+      (f) => !sameFieldValue(draft[f], published[f]),
+    );
+    return {
+      state: changedFields.length > 0 ? 'modified' : 'live',
+      publishedAt: published.publishedAt ?? null,
+      lastPublishedAt,
+      changedFields,
+    };
+  }
+  return {
+    state: lastPublishedAt ? 'unpublished' : 'never_published',
+    publishedAt: null,
+    lastPublishedAt,
+    changedFields: [],
+  };
 };
 
 /** List/teaser shape — no `body`. Carries the derived teaser + minutes instead,
@@ -53,12 +109,15 @@ const shapeListItem = (b: BlogRow) => ({
   readingMinutes: readingMinutes(b.body),
   coverImageUrl: b.coverImageUrl ?? null,
   publishedAt: b.publishedAt ?? null,
+  lastPublishedAt: b.lastPublishedAt ?? null,
   createdAt: b.createdAt ?? null,
   author: b.author ? { fullName: b.author.fullName ?? null } : null,
 });
 
-/** Full shape — the article page. Includes body + author avatar/bio. */
-const shapeFull = (b: BlogRow) => ({
+/** Full shape — the article page. Includes body + author avatar/bio. `live` is
+ *  set only for manager reads (the draft-vs-published comparison); a public read
+ *  passes it through as null. */
+const shapeFull = (b: BlogRow, live: LivePublishState | null = null) => ({
   documentId: b.documentId,
   title: b.title,
   slug: b.slug,
@@ -69,6 +128,7 @@ const shapeFull = (b: BlogRow) => ({
   coverImageUrl: b.coverImageUrl ?? null,
   publishedAt: b.publishedAt ?? null,
   createdAt: b.createdAt ?? null,
+  live,
   author: b.author
     ? {
         fullName: b.author.fullName ?? null,
@@ -125,28 +185,90 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
         'body',
         'coverImageUrl',
         'publishedAt',
+        'lastPublishedAt',
         'createdAt',
       ],
       populate: { author: { fields: ['fullName'] } },
       sort: ['publishedAt:desc'],
     })) as { results: BlogRow[]; pagination: unknown };
 
-    return self.transformResponse(results.map(shapeListItem), { pagination });
+    // For a manager list, attach the same draft-vs-live state `findOne` returns,
+    // so the list can badge "Unpublished changes" — not just published/draft.
+    // One extra query for the counterpart version of the rows on this page.
+    let liveByDoc: Map<string, LivePublishState> | null = null;
+    if (isManager && results.length > 0) {
+      const ids = results.map((r) => r.documentId);
+      const { results: counterpart } = (await strapi.service(UID).find({
+        filters: { documentId: { $in: ids } },
+        status: status === 'draft' ? 'published' : 'draft',
+        fields: ['title', 'slug', 'subtitle', 'category', 'body', 'coverImageUrl', 'publishedAt', 'lastPublishedAt'],
+        pagination: { pageSize: ids.length },
+      })) as { results: BlogRow[] };
+      const otherByDoc = new Map(counterpart.map((o) => [o.documentId, o]));
+      liveByDoc = new Map(
+        results.map((r) => {
+          const other = otherByDoc.get(r.documentId) ?? null;
+          const draft = status === 'draft' ? r : other;
+          const published = status === 'published' ? r : other;
+          return [r.documentId, deriveLive(draft ?? r, published)];
+        }),
+      );
+    }
+
+    return self.transformResponse(
+      results.map((r) => ({
+        ...shapeListItem(r),
+        live: liveByDoc?.get(r.documentId) ?? null,
+      })),
+      { pagination },
+    );
   },
 
   async findOne(ctx) {
     const self = this as unknown as CoreHelpers;
     const isManager = MANAGER_ROLES.includes(ctx.state.user?.role?.type ?? '');
 
-    const entity = (await strapi.documents(UID).findOne({
-      documentId: ctx.params.id,
-      status: isManager ? undefined : 'published', // non-managers: published only
-      fields: ['title', 'slug', 'subtitle', 'category', 'body', 'coverImageUrl', 'publishedAt'],
-      populate: { author: { fields: ['fullName', 'avatarUrl', 'bio'] } },
-    })) as unknown as BlogRow | null;
+    if (!isManager) {
+      const entity = (await strapi.documents(UID).findOne({
+        documentId: ctx.params.id,
+        status: 'published', // non-managers: published only
+        fields: ['title', 'slug', 'subtitle', 'category', 'body', 'coverImageUrl', 'publishedAt'],
+        populate: { author: { fields: ['fullName', 'avatarUrl', 'bio'] } },
+      })) as unknown as BlogRow | null;
 
-    if (!entity) return ctx.notFound();
-    return self.transformResponse(shapeFull(entity));
+      if (!entity) return ctx.notFound();
+      return self.transformResponse(shapeFull(entity));
+    }
+
+    // Manager read: return the draft (what the editor works on) plus a
+    // draft-vs-live comparison. Two point reads on the same documentId — the
+    // published one is null when the post has never been published or was taken
+    // down.
+    const [draft, published] = (await Promise.all([
+      strapi.documents(UID).findOne({
+        documentId: ctx.params.id,
+        status: 'draft',
+        fields: [
+          'title',
+          'slug',
+          'subtitle',
+          'category',
+          'body',
+          'coverImageUrl',
+          'publishedAt',
+          'lastPublishedAt',
+        ],
+        populate: { author: { fields: ['fullName', 'avatarUrl', 'bio'] } },
+      }),
+      strapi.documents(UID).findOne({
+        documentId: ctx.params.id,
+        status: 'published',
+        fields: ['title', 'slug', 'subtitle', 'category', 'body', 'coverImageUrl', 'publishedAt'],
+      }),
+    ])) as unknown as [BlogRow | null, BlogRow | null];
+
+    if (!draft) return ctx.notFound();
+    return self.transformResponse(shapeFull(draft, deriveLive(draft, published)));
   },
 
   async create(ctx) {
@@ -192,6 +314,15 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
   /** POST /api/blog-posts/:id/publish */
   async publish(ctx) {
     const self = this as unknown as CoreHelpers;
+    // Stamp the draft first so `lastPublishedAt` rides into the published row on
+    // the publish below: the two versions stay identical (no false "modified"
+    // right after publishing), and the value survives a later unpublish — which
+    // only deletes the published row — so we can still tell "taken down" from
+    // "never published".
+    await strapi.documents(UID).update({
+      documentId: ctx.params.id,
+      data: { lastPublishedAt: new Date() },
+    });
     await strapi.documents(UID).publish({ documentId: ctx.params.id });
     const entity = (await strapi.documents(UID).findOne({
       documentId: ctx.params.id,

@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Alert } from "@/components/ui/Alert";
+import { useUnsavedChanges } from "@/components/site/UnsavedChangesGuard";
 import { Badge } from "@/components/ui/Badge";
 import { useToast } from "@/components/ui/Toast";
 
@@ -217,6 +218,15 @@ function LessonFields({
   const [draft, setDraft] = useState<Draft>(initial);
   const set = (k: keyof Draft) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setDraft((d) => ({ ...d, [k]: e.target.value }));
+
+  // Warn before leaving the course page while this inline lesson edit has
+  // unsaved changes (site-wide guard — link clicks, tab close, Back).
+  const fieldDirty =
+    !busy &&
+    (["title", "content", "videoUrl", "order"] as const).some(
+      (k) => String(draft[k] ?? "") !== String(initial[k] ?? ""),
+    );
+  useUnsavedChanges(fieldDirty);
 
   return (
     <form

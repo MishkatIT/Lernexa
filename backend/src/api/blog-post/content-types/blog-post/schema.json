@@ -45,6 +45,9 @@
     "coverImageUrl": {
       "type": "string"
     },
+    "lastPublishedAt": {
+      "type": "datetime"
+    },
     "author": {
       "type": "relation",
       "relation": "manyToOne",

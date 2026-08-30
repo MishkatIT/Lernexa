@@ -3,6 +3,15 @@ import "server-only";
 import { strapiFetch, StrapiError } from "./strapi";
 import { getToken } from "./session";
 
+// Client-safe state helpers live in ./blog-status so client components can use
+// them without dragging this server-only module into the browser bundle.
+export {
+  postBadgeState,
+  type LivePublishState,
+  type PostBadgeState,
+} from "./blog-status";
+import type { LivePublishState } from "./blog-status";
+
 export type PostAuthor = {
   fullName: string | null;
   avatarUrl?: string | null;
@@ -19,7 +28,10 @@ export type PostListItem = {
   readingMinutes: number;
   coverImageUrl: string | null;
   publishedAt: string | null;
+  lastPublishedAt: string | null;
   createdAt: string | null;
+  /** Manager list only — the draft-vs-live comparison. Null on the public feed. */
+  live: LivePublishState | null;
   author: PostAuthor | null;
 };
 
@@ -34,6 +46,7 @@ export type Post = {
   coverImageUrl: string | null;
   publishedAt: string | null;
   createdAt: string | null;
+  live: LivePublishState | null;
   author: PostAuthor | null;
 };
 

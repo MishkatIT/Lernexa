@@ -56,7 +56,11 @@ export async function updatePost(
   const problem = validate(input);
   if (problem) return { ok: false, error: problem };
   try {
-    await strapiFetch(`/api/blog-posts/${documentId}`, {
+    // `?status=draft` writes the DRAFT version only. Without it, Strapi 5
+    // write-through also mutates the published version, so an edit to a live
+    // post would go public instantly with no way to stage it. Draft-only edits
+    // + an explicit publish are what make "unpublished changes" a real state.
+    await strapiFetch(`/api/blog-posts/${documentId}?status=draft`, {
       method: "PUT",
       token,
       body: JSON.stringify({ data: input }),

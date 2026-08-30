@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Alert } from "@/components/ui/Alert";
+import { useUnsavedChanges } from "@/components/site/UnsavedChangesGuard";
 
 export function ProfileForm({
   initialName,
@@ -27,6 +28,7 @@ export function ProfileForm({
 
   const dirty =
     name.trim() !== initialName.trim() || bio.trim() !== initialBio.trim();
+  useUnsavedChanges(dirty && !pending);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -102,6 +104,10 @@ export function PasswordForm() {
   const [formError, setFormError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [pending, setPending] = useState(false);
+
+  const dirty =
+    !pending && Object.values(values).some((v) => v.length > 0);
+  useUnsavedChanges(dirty);
 
   function set(key: keyof typeof EMPTY, v: string) {
     setValues((prev) => ({ ...prev, [key]: v }));

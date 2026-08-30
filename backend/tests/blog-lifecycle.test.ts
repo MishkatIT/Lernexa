@@ -169,6 +169,97 @@ describe('publish → public → unpublish', () => {
   });
 });
 
+describe('draft-vs-live state (manager findOne `live`)', () => {
+  it('a fresh draft reports never_published', async () => {
+    const { id } = await makeDraft(T.cm!, 'live-new');
+    const r = await api('GET', `/api/blog-posts/${id}`, { token: T.cm! });
+    expect(r.status).toBe(200);
+    expect(r.body.data.live.state).toBe('never_published');
+    expect(r.body.data.live.changedFields).toEqual([]);
+  });
+
+  it('after publish the draft matches live → state "live"', async () => {
+    const { id } = await makeDraft(T.cm!, 'live-pub');
+    await api('POST', `/api/blog-posts/${id}/publish`, { token: T.cm! });
+    const r = await api('GET', `/api/blog-posts/${id}`, { token: T.cm! });
+    expect(r.body.data.live.state).toBe('live');
+    expect(r.body.data.live.publishedAt).toBeTruthy();
+    expect(r.body.data.live.lastPublishedAt).toBeTruthy();
+  });
+
+  it('editing a published post (draft-only) → state "modified" naming the changed fields', async () => {
+    const { id } = await makeDraft(T.cm!, 'live-mod');
+    await api('POST', `/api/blog-posts/${id}/publish`, { token: T.cm! });
+    // `?status=draft` — the write path the manage UI uses: edits land on the
+    // draft, the published version is untouched until an explicit publish.
+    await api('PUT', `/api/blog-posts/${id}?status=draft`, {
+      token: T.cm!,
+      body: { data: { body: 'a materially different body' } },
+    });
+    const r = await api('GET', `/api/blog-posts/${id}`, { token: T.cm! });
+    expect(r.body.data.live.state).toBe('modified');
+    expect(r.body.data.live.changedFields).toContain('body');
+    // the public (published) copy is still the original
+    const pub = await api('GET', `/api/blog-posts/${id}`, {});
+    expect(pub.body.data.body).not.toContain('materially different');
+  });
+
+  it('re-publishing clears the modified state', async () => {
+    const { id } = await makeDraft(T.cm!, 'live-republish');
+    await api('POST', `/api/blog-posts/${id}/publish`, { token: T.cm! });
+    await api('PUT', `/api/blog-posts/${id}?status=draft`, {
+      token: T.cm!,
+      body: { data: { subtitle: 'new subtitle' } },
+    });
+    await api('POST', `/api/blog-posts/${id}/publish`, { token: T.cm! });
+    const r = await api('GET', `/api/blog-posts/${id}`, { token: T.cm! });
+    expect(r.body.data.live.state).toBe('live');
+    expect(r.body.data.live.changedFields).toEqual([]);
+  });
+
+  it('unpublishing a once-live post → state "unpublished" (keeps lastPublishedAt)', async () => {
+    const { id } = await makeDraft(T.cm!, 'live-unpub');
+    await api('POST', `/api/blog-posts/${id}/publish`, { token: T.cm! });
+    await api('POST', `/api/blog-posts/${id}/unpublish`, { token: T.cm! });
+    const r = await api('GET', `/api/blog-posts/${id}`, { token: T.cm! });
+    expect(r.status).toBe(200);
+    expect(r.body.data.live.state).toBe('unpublished');
+    expect(r.body.data.live.lastPublishedAt).toBeTruthy();
+    expect(r.body.data.live.publishedAt).toBeNull();
+  });
+
+  it('a non-manager read never carries `live`', async () => {
+    const { id } = await makeDraft(T.cm!, 'live-anon');
+    await api('POST', `/api/blog-posts/${id}/publish`, { token: T.cm! });
+    const r = await api('GET', `/api/blog-posts/${id}`, {});
+    expect(r.status).toBe(200);
+    expect(r.body.data.live ?? null).toBeNull();
+  });
+
+  it('the manager list carries `live` and flags a modified post', async () => {
+    const { id, title: t } = await makeDraft(T.cm!, 'live-list');
+    await api('POST', `/api/blog-posts/${id}/publish`, { token: T.cm! });
+    await api('PUT', `/api/blog-posts/${id}?status=draft`, {
+      token: T.cm!,
+      body: { data: { body: 'list-diff body change' } },
+    });
+    const list = await api(
+      'GET',
+      `/api/blog-posts?q=${encodeURIComponent(AUDIT_PREFIX)}&pagination[pageSize]=100`,
+      { token: T.cm! },
+    );
+    const row = list.body.data.find((p: any) => p.title === t);
+    expect(row?.live?.state).toBe('modified');
+    // the anonymous feed row has no `live`
+    const anon = await api(
+      'GET',
+      `/api/blog-posts?q=${encodeURIComponent(AUDIT_PREFIX)}&pagination[pageSize]=100`,
+      {},
+    );
+    expect((anon.body.data.find((p: any) => p.title === t)?.live) ?? null).toBeNull();
+  });
+});
+
 describe('edit + delete', () => {
   it('a content-manager edits a post', async () => {
     const { id } = await makeDraft(T.cm!, 'edit');

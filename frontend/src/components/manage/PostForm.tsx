@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Alert } from "@/components/ui/Alert";
 import { useToast } from "@/components/ui/Toast";
+import { useUnsavedChanges } from "@/components/site/UnsavedChangesGuard";
 import { CATEGORIES } from "@/lib/blog-categories";
 
 export function PostForm({
@@ -35,6 +36,18 @@ export function PostForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Dirty = a field differs from what the server last gave us. After a save the
+  // parent server component refreshes and passes the new `initial`, so this
+  // flips back to false on its own.
+  const dirty =
+    !busy &&
+    (title !== (initial?.title ?? "") ||
+      subtitle !== (initial?.subtitle ?? "") ||
+      category !== (initial?.category ?? "") ||
+      body !== (initial?.body ?? "") ||
+      coverImageUrl !== (initial?.coverImageUrl ?? ""));
+  const { confirmLeave } = useUnsavedChanges(dirty);
+
   async function save() {
     setBusy(true);
     setError(null);
@@ -54,12 +67,16 @@ export function PostForm({
       setError(res.error);
       return;
     }
-    toast(mode === "create" ? "Draft created" : "Post saved");
-    router.push(
-      mode === "create" && "documentId" in res && res.documentId
-        ? `/manage/blog/${res.documentId}`
-        : "/manage/blog",
-    );
+    if (mode === "create" && "documentId" in res && res.documentId) {
+      toast("Draft created");
+      router.push(`/manage/blog/${res.documentId}`);
+      router.refresh();
+      return;
+    }
+    // Edit: stay on the page so the editor can keep working and see the
+    // refreshed draft-vs-live state. `refresh()` re-runs the server component,
+    // which re-reads `post.live` and updates the badge + publish control.
+    toast("Post saved");
     router.refresh();
   }
 
@@ -114,7 +131,12 @@ export function PostForm({
         <Button onClick={save} disabled={busy}>
           {busy ? "Saving…" : mode === "create" ? "Create draft" : "Save"}
         </Button>
-        <Button variant="ghost" onClick={() => router.push("/manage/blog")}>
+        <Button
+          variant="ghost"
+          onClick={() => {
+            if (confirmLeave()) router.push("/manage/blog");
+          }}
+        >
           Cancel
         </Button>
       </div>

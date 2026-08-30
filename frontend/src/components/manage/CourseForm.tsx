@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Alert } from "@/components/ui/Alert";
 import { useToast } from "@/components/ui/Toast";
+import { useUnsavedChanges } from "@/components/site/UnsavedChangesGuard";
 
 type Props = {
   mode: "create" | "edit";
@@ -52,6 +53,7 @@ export function CourseForm({ mode, documentId, initial }: Props) {
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const { confirmLeave } = useUnsavedChanges(dirty && !pending);
 
   const initialProgression: LessonProgressionMode =
     initial?.lessonProgression ?? "free";
@@ -169,7 +171,9 @@ export function CourseForm({ mode, documentId, initial }: Props) {
           <Button
             type="button"
             variant="ghost"
-            onClick={() => router.push("/manage/courses")}
+            onClick={() => {
+              if (confirmLeave()) router.push("/manage/courses");
+            }}
           >
             Cancel
           </Button>
