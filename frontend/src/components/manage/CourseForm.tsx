@@ -98,11 +98,14 @@ export function CourseForm({ mode, documentId, initial }: Props) {
       return;
     }
     toast(mode === "create" ? "Course created" : "Course saved");
-    router.push(
-      mode === "create" && res.documentId
-        ? `/manage/courses/${res.documentId}`
-        : "/manage/courses",
-    );
+    if (mode === "create" && res.documentId) {
+      // New course: move to its edit page. Editing stays put so the
+      // instructor can keep working through the other sections.
+      router.push(`/manage/courses/${res.documentId}`);
+    } else {
+      setPending(false);
+      setDirty(false);
+    }
     router.refresh();
   }
 

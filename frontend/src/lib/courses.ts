@@ -3,6 +3,24 @@ import "server-only";
 import { strapiFetch } from "./strapi";
 import { getToken } from "./session";
 import type { LessonProgressionMode } from "./schemas";
+import {
+  ROSTER_DEFAULT_PAGE_SIZE,
+  type StudentProgressPage,
+  type StudentProgressRow,
+} from "./roster";
+
+// Re-exported so existing `@/lib/courses` importers keep working; the source of
+// truth is `./roster` (safe to import from client code).
+export {
+  ROSTER_PAGE_SIZES,
+  ROSTER_DEFAULT_PAGE_SIZE,
+} from "./roster";
+export type { StudentProgressRow, StudentProgressPage } from "./roster";
+
+/** D-039 — course visibility. `published` shows in the catalogue and takes
+ *  enrolments; `enrolled_only` keeps current students learning but is unlisted;
+ *  `draft` is owner-only. Older payloads without the field read as "draft". */
+export type CourseStatus = "draft" | "enrolled_only" | "published";
 
 export type CourseLite = {
   documentId: string;
@@ -10,6 +28,7 @@ export type CourseLite = {
   slug: string | null;
   description: string | null;
   coverImageUrl: string | null;
+  status: CourseStatus;
   /** D-038 — how students move through lessons. Backend guarantees one of the
    *  three modes; older payloads without the field are treated as "free". */
   lessonProgression: LessonProgressionMode;
@@ -24,6 +43,8 @@ export type ManagedLesson = {
   order: number;
   content: string;
   videoUrl: string;
+  /** D-039 — an unpublished lesson is hidden from students but still editable here. */
+  published: boolean;
 };
 
 export type Paged<T> = {
@@ -101,12 +122,18 @@ export async function listAllManagedCourses(q?: string): Promise<CourseLite[]> {
   return out;
 }
 
+/** Send the caller's token when they have one. The backend's findOne gate
+ *  (D-039) then resolves visibility per role: a manager / owning instructor
+ *  sees any status, a student sees `published` + their own `enrolled_only`,
+ *  anonymous sees `published` only. */
 export async function getCourseByDocumentId(
   documentId: string,
 ): Promise<CourseLite | null> {
+  const token = await getToken();
   try {
     const res = await strapiFetch<{ data: CourseLite }>(
       `/api/courses/${documentId}`,
+      { token },
     );
     return res.data;
   } catch {
@@ -114,30 +141,67 @@ export async function getCourseByDocumentId(
   }
 }
 
+/** Detail lookup by slug. Tries the public endpoint first — that covers every
+ *  published course for everyone, including an instructor browsing a peer's
+ *  course. On a miss, retries with the caller's token so an enrolled student
+ *  reaches their own `enrolled_only` course and an owner reaches their own
+ *  draft (D-039). */
 export async function getCourseBySlug(slug: string): Promise<CourseLite | null> {
-  const res = await strapiFetch<{ data: CourseLite[] }>(
-    `/api/courses?filters[slug][$eq]=${encodeURIComponent(slug)}&pagination[pageSize]=1`,
-    { cache: "no-store" },
-  );
-  return res.data[0] ?? null;
+  const qs = `filters[slug][$eq]=${encodeURIComponent(slug)}&pagination[pageSize]=1`;
+
+  const anon = await strapiFetch<{ data: CourseLite[] }>(`/api/courses?${qs}`, {
+    cache: "no-store",
+  });
+  if (anon.data[0]) return anon.data[0];
+
+  const token = await getToken();
+  if (!token) return null;
+  const authed = await strapiFetch<{ data: CourseLite[] }>(`/api/courses?${qs}`, {
+    token,
+    cache: "no-store",
+  });
+  return authed.data[0] ?? null;
 }
 
-export type StudentProgressRow = {
-  student: { id: number; name: string };
-  enrolledAt: string;
-  lastActivity: string | null;
-  progress: { completed: number; total: number; percent: number };
-};
-
-/** Instructor / CM / admin view — the batched 2-query service. Sorted stuck-first
- *  server-side. */
+/** Instructor / CM / admin view — the batched query service, paginated
+ *  server-side. Rows come back sorted stuck-first. */
 export async function getStudentProgress(
+  courseDocumentId: string,
+  opts: { page?: number; pageSize?: number } = {},
+): Promise<StudentProgressPage> {
+  const token = await getToken();
+  const pageSize = opts.pageSize ?? ROSTER_DEFAULT_PAGE_SIZE;
+  const qs = new URLSearchParams({
+    page: String(opts.page ?? 1),
+    pageSize: String(pageSize),
+  });
+  try {
+    const res = await strapiFetch<{
+      data: StudentProgressRow[];
+      meta: {
+        pagination: {
+          page: number;
+          pageSize: number;
+          pageCount: number;
+          total: number;
+        };
+      };
+    }>(`/api/courses/${courseDocumentId}/student-progress?${qs}`, { token });
+    return { rows: res.data, ...res.meta.pagination };
+  } catch {
+    return { rows: [], page: 1, pageSize, pageCount: 1, total: 0 };
+  }
+}
+
+/** Whole roster, unpaginated — for callers that aggregate across every student
+ *  (e.g. the instructor home snapshot's course averages). */
+export async function getAllStudentProgress(
   courseDocumentId: string,
 ): Promise<StudentProgressRow[]> {
   const token = await getToken();
   try {
     const res = await strapiFetch<{ data: StudentProgressRow[] }>(
-      `/api/courses/${courseDocumentId}/student-progress`,
+      `/api/courses/${courseDocumentId}/student-progress?pageSize=all`,
       { token },
     );
     return res.data;
@@ -159,6 +223,7 @@ export async function getManagedLessons(
     "fields[1]": "order",
     "fields[2]": "content",
     "fields[3]": "videoUrl",
+    "fields[4]": "published",
     "pagination[pageSize]": "200",
   });
   const res = await strapiFetch<{
@@ -168,6 +233,7 @@ export async function getManagedLessons(
       order: number;
       content: string | null;
       videoUrl: string | null;
+      published: boolean | null;
     }>;
   }>(`/api/lessons?${qs}`, { token });
 
@@ -177,5 +243,6 @@ export async function getManagedLessons(
     order: l.order,
     content: l.content ?? "",
     videoUrl: l.videoUrl ?? "",
+    published: l.published !== false,
   }));
 }

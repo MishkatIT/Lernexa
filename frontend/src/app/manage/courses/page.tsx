@@ -145,6 +145,11 @@ export default async function ManageCoursesPage({
                     ) : null}
                   </span>
                   <span className="flex shrink-0 items-center gap-2">
+                    {c.status === "published" ? null : (
+                      <Badge tone={c.status === "draft" ? "neutral" : "warning"}>
+                        {c.status === "draft" ? "Draft" : "Enrolled only"}
+                      </Badge>
+                    )}
                     {c.noLessons ? (
                       <Badge tone="warning">No lessons</Badge>
                     ) : null}

@@ -5,9 +5,12 @@ import {
   getCourseByDocumentId,
   getManagedLessons,
   getStudentProgress,
+  ROSTER_DEFAULT_PAGE_SIZE,
+  ROSTER_PAGE_SIZES,
 } from "@/lib/courses";
 import { getCourseQuiz } from "@/lib/quiz";
 import { CourseForm } from "@/components/manage/CourseForm";
+import { CoursePublishControl } from "@/components/manage/CoursePublishControl";
 import { LessonManager } from "@/components/manage/LessonManager";
 import { DeleteCourseButton } from "@/components/manage/DeleteCourseButton";
 import { QuizBuilder } from "@/components/manage/QuizBuilder";
@@ -18,6 +21,7 @@ export const metadata: Metadata = { title: "Edit course" };
 
 const SECTIONS = [
   { id: "details", label: "Details" },
+  { id: "publish", label: "Publish" },
   { id: "lessons", label: "Lessons" },
   { id: "quiz", label: "Quiz" },
   { id: "students", label: "Students" },
@@ -26,14 +30,24 @@ const SECTIONS = [
 
 export default async function EditCoursePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ students_page?: string; students_per?: string }>;
 }) {
   const { id } = await params;
-  const [course, lessons, students, quiz] = await Promise.all([
+  const sp = await searchParams;
+  const rosterPageSize = ROSTER_PAGE_SIZES.includes(
+    Number(sp.students_per) as (typeof ROSTER_PAGE_SIZES)[number],
+  )
+    ? Number(sp.students_per)
+    : ROSTER_DEFAULT_PAGE_SIZE;
+  const rosterPage = Math.max(1, Number(sp.students_page) || 1);
+
+  const [course, lessons, roster, quiz] = await Promise.all([
     getCourseByDocumentId(id),
     getManagedLessons(id),
-    getStudentProgress(id),
+    getStudentProgress(id, { page: rosterPage, pageSize: rosterPageSize }),
     getCourseQuiz(id),
   ]);
   if (!course) notFound();
@@ -49,7 +63,7 @@ export default async function EditCoursePage({
       <h1 className="mt-3 text-display text-ink-900">{course.title}</h1>
       <p className="mt-1 text-body text-ink-500">
         {lessons.length} lesson{lessons.length === 1 ? "" : "s"} ·{" "}
-        {students.length} student{students.length === 1 ? "" : "s"} ·{" "}
+        {roster.total} student{roster.total === 1 ? "" : "s"} ·{" "}
         {quiz ? "quiz set" : "no quiz"}
       </p>
 
@@ -69,6 +83,18 @@ export default async function EditCoursePage({
                 }}
               />
             </div>
+          </section>
+
+          <section id="publish" className="mt-12 scroll-mt-24">
+            <h2 className="text-h3 text-ink-900">Publish</h2>
+            <p className="mt-1 mb-4 text-small text-ink-500">
+              Controls who can see and enrol in this course.
+            </p>
+            <CoursePublishControl
+              documentId={course.documentId}
+              status={course.status}
+              publishedLessonCount={lessons.filter((l) => l.published).length}
+            />
           </section>
 
           <section id="lessons" className="mt-12 scroll-mt-24">
@@ -99,12 +125,16 @@ export default async function EditCoursePage({
             <h2 className="text-h3 text-ink-900">
               Students{" "}
               <span className="font-normal text-ink-500">
-                ({students.length}, least progress first)
+                ({roster.total}, least progress first)
               </span>
             </h2>
             <RosterManager
               courseDocumentId={course.documentId}
-              students={students}
+              rows={roster.rows}
+              total={roster.total}
+              page={roster.page}
+              pageSize={roster.pageSize}
+              pageCount={roster.pageCount}
             />
           </section>
 

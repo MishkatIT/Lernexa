@@ -12,6 +12,36 @@ export default {
         policies: [{ name: 'global::has-role', config: { roles: ['student'] } }],
       },
     },
+    // Visibility toggle (D-039). Same gate as edit/delete: manager role + course
+    // ownership. `unpublish` accepts { mode: 'enrolled_only' | 'draft' }.
+    {
+      method: 'POST',
+      path: '/courses/:id/publish',
+      handler: 'course.publish',
+      config: {
+        policies: [
+          {
+            name: 'global::has-role',
+            config: { roles: ['admin', 'content-manager', 'instructor'] },
+          },
+          'global::is-course-owner',
+        ],
+      },
+    },
+    {
+      method: 'POST',
+      path: '/courses/:id/unpublish',
+      handler: 'course.unpublish',
+      config: {
+        policies: [
+          {
+            name: 'global::has-role',
+            config: { roles: ['admin', 'content-manager', 'instructor'] },
+          },
+          'global::is-course-owner',
+        ],
+      },
+    },
     {
       method: 'GET',
       path: '/courses/:id/student-progress',

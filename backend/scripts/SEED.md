@@ -20,14 +20,14 @@ Every seeded account has the password **`Lernexa123!`**.
 | Entity | Count | Variety built in |
 |---|---:|---|
 | **Users** | ~97 | 2 admin, 3 content-manager, 12 instructor, ~80 student. ~7 blocked (varied reasons + block dates). ~35% have an avatar URL. Two instructors deliberately own **no** courses. |
-| **Courses** | ~61 | Real titles/descriptions across ~30 topics. Ownership spread unevenly over the 12 instructors + 3 on managers. **4 courses have 0 lessons** (hidden from the public catalogue by rule 1, visible on the worklist / attention queue). ~9 have **0 enrolments**. 3–4 "popular" courses carry 30–45 students. One course has a deliberately overlong title + description. ~60% have a `coverImageUrl`. |
-| **Lessons** | ~356 | 0–12 per course. Content is templated educational prose with **varied length** (1–4 paragraphs). A few courses have **gaps in `order`** (2, 4, 5, 7 …) — allowed by the data model. ~30% have a `videoUrl`. |
-| **Quizzes** | 16 | 3–6 questions, 2–4 options each, options shuffled so the correct one isn't always first. **Exactly one** quiz (*Regular Expressions Deep Dive*) has a question with **no correct option** — this feeds the admin attention queue ("quizzes with no correct answer"). *React Fundamentals* keeps its documented 5-question checkpoint. |
+| **Courses** | ~61 | Real titles/descriptions across ~30 topics. Ownership spread unevenly over the 12 instructors + 3 on managers. **4 courses have 0 lessons** (hidden from the public catalogue by rule 1, visible on the worklist / attention queue). ~9 have **0 enrolments**. 3–4 "popular" courses carry 30–45 students. One course has a deliberately overlong title + description. ~60% have a `coverImageUrl`. **Visibility (D-039):** 2 courses are `draft` (built out, no roster, catalogue-hidden), 2 are `enrolled_only` (keep their roster, closed to new enrolment); the rest are `published`. |
+| **Lessons** | ~356 | 0–12 per course. Content is templated educational prose with **varied length** (1–4 paragraphs). A few courses have **gaps in `order`** (2, 4, 5, 7 …) — allowed by the data model. ~30% have a `videoUrl`. **2 lessons start unpublished** (in *Advanced React Patterns* and *Modern CSS Layout*) so the "Hidden" state shows in the manage UI and is excluded from progress totals. |
+| **Quizzes** | 16 | 3–6 questions, 2–4 options each, options shuffled so the correct one isn't always first. **Exactly one** quiz (*Regular Expressions Deep Dive*) has a question with **no correct option** — this feeds the admin attention queue ("quizzes with no correct answer"). *React Fundamentals* keeps its documented 5-question checkpoint. The *Git Internals* quiz **starts unpublished** (D-039) — students don't see it until it's toggled on; any recorded attempts are kept. |
 | **Enrolments** | ~220 | `enrolledAt` spread over ~6 months; ~16% within the last week. Every progress state is represented (see below). 2 students are enrolled in a **0-lesson course** (dashboard "this course has no lessons yet" branch). |
 | **Lesson completions** | ~900 | Contiguous from lesson 1 (realistic sequential learning). Timestamps increase between `enrolledAt` and now. ~1 in 6 partial learners has activity in the **last few days** (drives "active in last 7 days"). |
 | **Quiz attempts** | ~35 | Varied scores 0–total. ~30% are retakes, and the retake is usually better. `answers` is a snapshot in the `[{ questionId, selectedOptionId, correct }]` shape. |
 | **Blog posts** | 40 | 33 published (spread over ~1 year), 7 drafts — ~5 of them **older than a week** (feeds the content worklist "stale drafts"). Authors cycle over the managers + two instructors. |
-| **Audit-log entries** | ~83 | Every action the backend emits (`user.registered`, `user.role_changed`, `user.blocked` / `unblocked`, `settings.updated`, `course.created` / `deleted`, `blog.published` / `unpublished` / `deleted`, `account.password_changed`), `createdAt` spread over ~110 days. |
+| **Audit-log entries** | ~85 | `user.registered`, `user.role_changed`, `user.blocked` / `unblocked`, `settings.updated`, `course.created` / `unpublished` (the D-039 demo courses), `course.deleted`, `blog.published` / `unpublished` / `deleted`, `account.password_changed` — `createdAt` spread over ~110 days. `lesson.*` / `quiz.*` publish rows appear once those toggles are used in the running app. |
 
 ### Progress spread across enrolments
 
@@ -54,9 +54,9 @@ Each entity has a deterministic identity; the seed checks before it writes.
 | Entity | Idempotency key |
 |---|---|
 | users | `email` |
-| courses | `title` |
-| lessons | created only when the course currently has **0** |
-| quizzes | created only when the course currently has **0** |
+| courses | `title` (a re-run also reconciles `lessonProgression` + `status`) |
+| lessons | created only when the course currently has **0** (the `published` flag is set on create, not reconciled) |
+| quizzes | created only when the course currently has **0** (same — `published` set on create only) |
 | enrolments | unique `dedupeKey` = `"<userId>:<courseId>"` |
 | lesson completions | unique `dedupeKey` = `"<userId>:<lessonId>"` |
 | blog posts | `title` |

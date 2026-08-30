@@ -15,9 +15,9 @@ const UID = 'api::lesson-completion.lesson-completion';
  * is idempotent.
  */
 async function progressFor(strapi: Core.Strapi, userId: number, courseId: number) {
-  const lessons = (await strapi.db
-    .query('api::lesson.lesson')
-    .findMany({ where: { course: { id: courseId } } })) as Array<{ id: number }>;
+  const lessons = (await strapi.db.query('api::lesson.lesson').findMany({
+    where: { course: { id: courseId }, published: { $ne: false } },
+  })) as Array<{ id: number }>;
   const done = (await strapi.db.query(UID).findMany({
     where: { student: { id: userId }, course: { id: courseId } },
     populate: { lesson: true },
@@ -45,6 +45,10 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
     });
     if (!lesson?.course) return ctx.notFound('No such lesson');
 
+    // An unpublished lesson isn't in the student's /learn view — it can't be
+    // completed through a direct API call either (D-039).
+    if (lesson.published === false) return ctx.notFound('No such lesson');
+
     const courseId = lesson.course.id;
 
     const enrolled = await strapi.db.query('api::enrollment.enrollment').findOne({
@@ -67,7 +71,7 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
         const courseLessons = (await strapi.db
           .query('api::lesson.lesson')
           .findMany({
-            where: { course: { id: courseId } },
+            where: { course: { id: courseId }, published: { $ne: false } },
             orderBy: { order: 'asc' },
           })) as Array<{ id: number; order: number }>;
 

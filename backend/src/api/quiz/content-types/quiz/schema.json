@@ -16,6 +16,11 @@
       "type": "string",
       "required": true
     },
+    "published": {
+      "type": "boolean",
+      "default": true,
+      "required": true
+    },
     "course": {
       "type": "relation",
       "relation": "manyToOne",

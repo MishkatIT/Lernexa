@@ -1,4 +1,5 @@
 import { factories } from '@strapi/strapi';
+import type { Core } from '@strapi/strapi';
 
 const UID = 'api::lesson.lesson';
 
@@ -73,4 +74,46 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
 
     return super.delete(ctx);
   },
+
+  /**
+   * POST /api/lessons/:id/publish — owner / manager (route-gated). An
+   * unpublished lesson drops out of every student view: the catalogue's
+   * non-empty check, /learn, progression gates and all progress denominators
+   * (D-039). Recorded completions are kept, just not counted while hidden.
+   */
+  async publish(ctx) {
+    return setLessonPublished(strapi, ctx, true);
+  },
+  async unpublish(ctx) {
+    return setLessonPublished(strapi, ctx, false);
+  },
 }));
+
+/** Flip a lesson's `published` flag and write one audit row. Route policies
+ *  (has-role + is-lesson-owner) have already authorised the caller. */
+async function setLessonPublished(
+  strapi: Core.Strapi,
+  ctx: any,
+  next: boolean,
+) {
+  const lesson = await strapi.db
+    .query(UID)
+    .findOne({ where: { documentId: ctx.params.id } });
+  if (!lesson) return ctx.notFound();
+
+  if (lesson.published !== next) {
+    await strapi.db
+      .query(UID)
+      .update({ where: { id: lesson.id }, data: { published: next } });
+  }
+
+  await strapi.service('api::audit-log.audit-log').record({
+    action: next ? 'lesson.published' : 'lesson.unpublished',
+    category: 'content',
+    ctx,
+    target: { type: 'lesson', id: lesson.documentId, label: lesson.title },
+    metadata: { title: lesson.title },
+  });
+
+  ctx.body = { data: { documentId: lesson.documentId, published: next } };
+}

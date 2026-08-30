@@ -75,6 +75,35 @@ export async function updateLesson(
   }
 }
 
+/** D-039 — hide/show a single lesson. An unpublished lesson leaves every
+ *  student view and stops counting toward progress. */
+export async function setLessonPublished(
+  documentId: string,
+  courseDocumentId: string,
+  published: boolean,
+): Promise<ActionResult> {
+  const token = await getToken();
+  if (!token) return NO_SESSION;
+
+  try {
+    await strapiFetch(
+      `/api/lessons/${documentId}/${published ? "publish" : "unpublish"}`,
+      { method: "POST", token },
+    );
+    revalidatePath(`/manage/courses/${courseDocumentId}`);
+    revalidatePath("/courses");
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof StrapiError
+          ? err.message
+          : `Could not ${published ? "publish" : "hide"} the lesson.`,
+    };
+  }
+}
+
 export async function deleteLesson(
   documentId: string,
   courseDocumentId: string,

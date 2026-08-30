@@ -581,6 +581,11 @@ export interface ApiCourseCourse extends Struct.CollectionTypeSchema {
     publishedAt: Schema.Attribute.DateTime;
     quizzes: Schema.Attribute.Relation<'oneToMany', 'api::quiz.quiz'>;
     slug: Schema.Attribute.UID<'title'>;
+    status: Schema.Attribute.Enumeration<
+      ['draft', 'enrolled_only', 'published']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'draft'>;
     title: Schema.Attribute.String & Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -693,6 +698,9 @@ export interface ApiLessonLesson extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Private;
     order: Schema.Attribute.Integer & Schema.Attribute.Required;
+    published: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<true>;
     publishedAt: Schema.Attribute.DateTime;
     title: Schema.Attribute.String & Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;
@@ -761,6 +769,9 @@ export interface ApiQuizQuiz extends Struct.CollectionTypeSchema {
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::quiz.quiz'> &
       Schema.Attribute.Private;
+    published: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<true>;
     publishedAt: Schema.Attribute.DateTime;
     questions: Schema.Attribute.Component<'quiz.question', true>;
     title: Schema.Attribute.String & Schema.Attribute.Required;

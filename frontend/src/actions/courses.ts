@@ -74,6 +74,47 @@ export async function updateCourse(
   }
 }
 
+/** D-039 — course visibility. `unpublish` takes a mode: "enrolled_only"
+ *  (catalogue-hidden, current students keep learning) or "draft" (owner-only). */
+async function transitionCourse(
+  documentId: string,
+  path: "publish" | "unpublish",
+  mode?: "enrolled_only" | "draft",
+): Promise<ActionResult> {
+  const token = await getToken();
+  if (!token) return NO_SESSION;
+  try {
+    await strapiFetch(`/api/courses/${documentId}/${path}`, {
+      method: "POST",
+      token,
+      body: mode ? JSON.stringify({ mode }) : undefined,
+    });
+    revalidatePath("/manage/courses");
+    revalidatePath(`/manage/courses/${documentId}`);
+    revalidatePath("/courses");
+    return { ok: true, documentId };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof StrapiError ? err.message : `Could not ${path} the course.`,
+    };
+  }
+}
+
+export async function publishCourse(
+  documentId: string,
+): Promise<ActionResult> {
+  return transitionCourse(documentId, "publish");
+}
+
+export async function unpublishCourse(
+  documentId: string,
+  mode: "enrolled_only" | "draft" = "enrolled_only",
+): Promise<ActionResult> {
+  return transitionCourse(documentId, "unpublish", mode);
+}
+
 export async function deleteCourse(documentId: string): Promise<ActionResult> {
   const token = await getToken();
   if (!token) return NO_SESSION;

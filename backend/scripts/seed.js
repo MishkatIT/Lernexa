@@ -278,6 +278,34 @@ const EMPTY_COURSE_TITLES = new Set([
   'Debugging Under Pressure',
 ]);
 
+// Course visibility demo (D-039). Everything else is `published`.
+//   draft         — built out but not launched; no roster, invisible to students.
+//   enrolled_only — a closed cohort still finishing; keeps its roster, gone from
+//                   the catalogue, no new enrolments.
+const DRAFT_COURSE_TITLES = new Set([
+  'Browser Rendering Internals',
+  'API Security Essentials',
+]);
+const ENROLLED_ONLY_COURSE_TITLES = new Set([
+  'React Performance in Practice',
+  'Generics You Will Actually Use',
+]);
+const courseStatusFor = (title) =>
+  DRAFT_COURSE_TITLES.has(title)
+    ? 'draft'
+    : ENROLLED_ONLY_COURSE_TITLES.has(title)
+      ? 'enrolled_only'
+      : 'published';
+
+// One hidden lesson in two otherwise-published courses, so the "Hidden" state is
+// visible in the manage UI and drops out of student progress totals.
+const isHiddenLesson = (courseTitle, idx, count) =>
+  (courseTitle === 'Advanced React Patterns' && idx === count - 1) ||
+  (courseTitle === 'Modern CSS Layout' && idx === 2);
+
+// One course quiz starts hidden from students (attempts still allowed once shown).
+const HIDDEN_QUIZ_COURSE_TITLES = new Set(['Git Internals']);
+
 // Courses that get a quiz. One per topic-ish; kept to a realistic subset.
 const QUIZ_COURSE_TITLES = new Set([
   'React Fundamentals',
@@ -720,6 +748,8 @@ async function run(strapi) {
           ? 'open_locked'
           : 'free';
 
+    const status = courseStatusFor(title);
+
     let course = await q('api::course.course').findOne({ where: { title } });
     if (!course) {
       course = await q('api::course.course').create({
@@ -730,16 +760,23 @@ async function run(strapi) {
           coverImageUrl: chance(r, 0.6) ? COVER(slug) : null,
           instructor: owner.id,
           lessonProgression: progression,
+          status,
           publishedAt: new Date(),
         },
       });
       counts.courses = (counts.courses || 0) + 1;
-    } else if (course.lessonProgression !== progression) {
-      // idempotent re-run: bring an existing seeded course to the intended mode
-      course = await q('api::course.course').update({
-        where: { id: course.id },
-        data: { lessonProgression: progression },
-      });
+    } else {
+      // idempotent re-run: bring an existing seeded course to the intended
+      // progression mode + visibility.
+      const patch = {};
+      if (course.lessonProgression !== progression) patch.lessonProgression = progression;
+      if (course.status !== status) patch.status = status;
+      if (Object.keys(patch).length > 0) {
+        course = await q('api::course.course').update({
+          where: { id: course.id },
+          data: patch,
+        });
+      }
     }
 
     // lessons — created only when the course currently has none
@@ -772,6 +809,7 @@ async function run(strapi) {
           content: lessonContent(title, lt, topic, idx, r),
           videoUrl: chance(r, 0.3) ? `https://videos.lernexa.dev/${slug}/${idx + 1}.mp4` : null,
           course: course.id,
+          published: !isHiddenLesson(title, idx, titles.length),
           publishedAt: new Date(),
         };
         order += withGap && chance(r, 0.5) ? 2 : 1;
@@ -794,6 +832,7 @@ async function run(strapi) {
         data: {
           title: `${title} — checkpoint`,
           course: course.documentId,
+          published: !HIDDEN_QUIZ_COURSE_TITLES.has(title),
           questions: quizQuestionsFor(title, topic, r),
         },
         status: 'published',
@@ -813,8 +852,14 @@ async function run(strapi) {
   /* 3. enrolments + lesson completions                                    */
   /* ---------------------------------------------------------------------- */
 
-  const withLessons = courseRecords.filter((c) => c.lessons.length > 0);
-  const emptyCourses = courseRecords.filter((c) => c.lessons.length === 0);
+  // `draft` courses stay rosterless — "built but not launched". `enrolled_only`
+  // courses keep their roster (that's the whole point of the state), so they
+  // stay in the enrolment pool (D-039).
+  const enrollable = courseRecords.filter(
+    (c) => !DRAFT_COURSE_TITLES.has(c.rec.title),
+  );
+  const withLessons = enrollable.filter((c) => c.lessons.length > 0);
+  const emptyCourses = enrollable.filter((c) => c.lessons.length === 0);
   // "Popular" courses get big rosters (large student-progress responses).
   const popular = withLessons.slice(3, 3 + (SCALE === 'min' ? 1 : 4));
 
@@ -1289,6 +1334,32 @@ async function run(strapi) {
       int(r, 6, 300),
     );
   });
+  // course / lesson / quiz visibility toggles (D-039) — one audit row per
+  // demo-status fixture so the log actually carries these actions.
+  courseRecords.forEach((c) => {
+    const status = courseStatusFor(c.rec.title);
+    if (status === 'published') return;
+    const owner =
+      instructors.find((u) => u.id === c.rec.instructor?.id) || instructors[0];
+    const r = rngFor('audit-cvis:' + c.rec.title);
+    addAudit(
+      `course-visibility:${c.rec.id}`,
+      {
+        action: 'course.unpublished',
+        category: 'content',
+        actorId: owner ? owner.id : admin.id,
+        actorLabel: owner ? labelFor(owner) : adminLabel,
+        actorRole: 'instructor',
+        targetType: 'course',
+        targetId: c.rec.documentId,
+        targetLabel: c.rec.title,
+        metadata: { title: c.rec.title, to: status },
+        ip: `198.51.100.${int(r, 1, 254)}`,
+      },
+      int(r, 3, 90),
+    );
+  });
+
   ['Legacy: Backbone Basics', 'Deprecated: Flash for the Web'].forEach((t, i) => {
     const r = rngFor('audit-cdel:' + t);
     addAudit(

@@ -22,7 +22,11 @@ async function loadFullQuiz(strapi: Core.Strapi, documentId: string) {
     where: { documentId },
     populate: { questions: { populate: { options: true } }, course: true },
   })) as
-    | (Quiz & { course?: { id: number } | null; documentId: string })
+    | (Quiz & {
+        course?: { id: number } | null;
+        documentId: string;
+        published?: boolean;
+      })
     | null;
 }
 
@@ -69,6 +73,9 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
     const userId = ctx.state.user.id;
     const quiz = await loadFullQuiz(strapi, ctx.params.id);
     if (!quiz?.course) return ctx.notFound();
+    // An unpublished quiz is invisible to students (D-039) — same 404 a missing
+    // quiz gets, so its existence can't be probed.
+    if (quiz.published === false) return ctx.notFound();
 
     const enrolled = await strapi.db.query('api::enrollment.enrollment').findOne({
       where: { dedupeKey: `${userId}:${quiz.course.id}` },
@@ -89,6 +96,7 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
     const userId = ctx.state.user.id;
     const quiz = await loadFullQuiz(strapi, ctx.params.id);
     if (!quiz?.course) return ctx.notFound();
+    if (quiz.published === false) return ctx.notFound();
 
     const enrolled = await strapi.db.query('api::enrollment.enrollment').findOne({
       where: { dedupeKey: `${userId}:${quiz.course.id}` },
@@ -127,4 +135,45 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
     // correctness now legitimately exists client-side — the attempt is recorded.
     ctx.body = { data: result };
   },
+
+  /**
+   * POST /api/quizzes/:id/publish — owner / manager (route-gated). Makes the
+   * quiz available to enrolled students. `unpublish` pulls it without touching
+   * recorded attempts.
+   */
+  async publish(ctx) {
+    return setQuizPublished(strapi, ctx, true);
+  },
+  async unpublish(ctx) {
+    return setQuizPublished(strapi, ctx, false);
+  },
 }));
+
+/** Flip a quiz's `published` flag and write one audit row. Route policies
+ *  (has-role + is-quiz-owner) have already authorised the caller. */
+async function setQuizPublished(
+  strapi: Core.Strapi,
+  ctx: any,
+  next: boolean,
+) {
+  const quiz = await strapi.db
+    .query(UID)
+    .findOne({ where: { documentId: ctx.params.id } });
+  if (!quiz) return ctx.notFound();
+
+  if (quiz.published !== next) {
+    await strapi.db
+      .query(UID)
+      .update({ where: { id: quiz.id }, data: { published: next } });
+  }
+
+  await strapi.service('api::audit-log.audit-log').record({
+    action: next ? 'quiz.published' : 'quiz.unpublished',
+    category: 'content',
+    ctx,
+    target: { type: 'quiz', id: quiz.documentId, label: quiz.title },
+    metadata: { title: quiz.title },
+  });
+
+  ctx.body = { data: { documentId: quiz.documentId, published: next } };
+}

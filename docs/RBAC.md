@@ -164,13 +164,16 @@ Not: `if (isAdmin) showButton`.
 
 | Endpoint | admin | CM | instructor | student | public |
 |---|---|---|---|---|---|
-| `GET /api/courses` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `GET /api/courses` | ✅ | ✅ | ✅ | ✅ | ✅ published only |
 | `POST /api/courses` | ✅ | ✅ | ✅ owner forced | ❌ | ❌ |
 | `PUT\|DELETE /api/courses/:id` | ✅ | ✅ | ✅ own only | ❌ | ❌ |
+| `POST /api/courses/:id/publish\|unpublish` | ✅ | ✅ | ✅ own only | ❌ | ❌ |
 | `GET /api/lessons` \| `/api/lessons/:id` | ✅ | ✅ | ✅ own course | ❌ | ❌ |
 | `POST\|PUT\|DELETE /api/lessons` | ✅ | ✅ | ✅ own course | ❌ | ❌ |
+| `POST /api/lessons/:id/publish\|unpublish` | ✅ | ✅ | ✅ own course | ❌ | ❌ |
 | `GET /api/quizzes` \| `/api/quizzes/:id` | ✅ | ✅ | ✅ own course | **❌ disabled** | ❌ |
 | `POST\|PUT\|DELETE /api/quizzes` | ✅ | ✅ | ✅ own course | ❌ | ❌ |
+| `POST /api/quizzes/:id/publish\|unpublish` | ✅ | ✅ | ✅ own course | ❌ | ❌ |
 | `GET /api/quizzes/:id/take` | ❌ | ❌ | ❌ | ✅ enrolled | ❌ |
 | `POST /api/quizzes/:id/submit` | ❌ | ❌ | ❌ | ✅ enrolled | ❌ |
 | `POST /api/enrollments/enroll` | ❌ | ❌ | ❌ | ✅ | ❌ |
@@ -208,6 +211,9 @@ configurations — check explicitly.
 | Instructor A views B's students' progress | 403 | layer 3 on the progress route |
 | Instructor A adds/removes students on B's course | 403 | layer 3 `is-course-owner` on the roster routes |
 | Instructor A reads B's quiz answer key (`GET /api/quizzes/:id`) | 403 | layer 3 `is-quiz-owner` on findOne |
+| Instructor A publishes/unpublishes B's course, lesson or quiz | 403 | layer 3 `is-course-/lesson-/quiz-owner` on the toggle routes |
+| Anonymous or student `GET /api/courses/:id` for a `draft` / `enrolled_only` course | 404 | controller visibility gate (D-039); enrolled student may read their own `enrolled_only` |
+| Student enrols in a `draft` / `enrolled_only` course | 404 | `enroll` controller checks `status === 'published'` |
 | Instructor A lists/reads lessons in B's course | 0 results / 403 | layer 4 forced filter + `is-lesson-owner` |
 | Student X reads Student Y's enrollments via `filters` | own rows only | layer 4 forced filter |
 | Student X reads Student Y's quiz attempts | own rows only | layer 4 |

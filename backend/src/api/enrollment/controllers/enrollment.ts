@@ -25,6 +25,14 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
       .findOne({ where: { documentId: courseId } });
     if (!course) return ctx.notFound('No such course');
 
+    // Only a `published` course is open for self-enrolment (D-039). `draft` and
+    // `enrolled_only` are 404 here — the same answer a non-existent id gets, so
+    // an unlisted course can't be confirmed to exist. A manager can still
+    // pre-load a roster via POST /courses/:id/enrollments.
+    if (course.status !== 'published') {
+      return ctx.notFound('No such course');
+    }
+
     const dedupeKey = `${userId}:${course.id}`;
 
     const existing = await strapi.db.query(UID).findOne({ where: { dedupeKey } });
@@ -84,7 +92,7 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
     }
 
     const lessons = (await strapi.db.query('api::lesson.lesson').findMany({
-      where: { course: { id: { $in: courseIds } } },
+      where: { course: { id: { $in: courseIds } }, published: { $ne: false } },
       populate: { course: true },
     })) as Array<{ id: number } & WithCourse>;
 

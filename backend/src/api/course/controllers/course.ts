@@ -1,4 +1,5 @@
 import { factories } from '@strapi/strapi';
+import type { Core } from '@strapi/strapi';
 import {
   computeProgress,
   computeProgressForCourse,
@@ -15,8 +16,28 @@ const MANAGER_ROLES = ['admin', 'content-manager', 'instructor'];
 const ENROLLMENT_UID = 'api::enrollment.enrollment';
 const COMPLETION_UID = 'api::lesson-completion.lesson-completion';
 
+/**
+ * Course visibility (D-039). Not native Draft & Publish — `draftAndPublish` stays
+ * off; this is an explicit field gated by forced filters (D-005).
+ *   draft         — owner / manager only. Nobody else, enrolled or not.
+ *   enrolled_only — hidden from the catalogue; no new enrolments; already-enrolled
+ *                   students keep /learn + quiz access.
+ *   published     — in the catalogue, open for enrolment.
+ */
+const COURSE_STATUSES = ['draft', 'enrolled_only', 'published'] as const;
+type CourseStatus = (typeof COURSE_STATUSES)[number];
+const isCourseStatus = (v: unknown): v is CourseStatus =>
+  COURSE_STATUSES.includes(v as CourseStatus);
+
 /** Roster batch cap — one round of add/remove touches at most this many rows. */
 const MAX_ROSTER_BATCH = 100;
+
+/** Student-progress page size: default 20, hard cap 100. */
+const clampPageSize = (raw: unknown, fallback = 20, max = 100): number => {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 1) return fallback;
+  return Math.min(Math.trunc(n), max);
+};
 
 /** Accepts `string[]` or a single blob (newline / comma / semicolon / space
  *  separated). Lower-cases, trims, keeps only plausible addresses, dedupes,
@@ -60,9 +81,10 @@ type CourseRow = {
   slug: string | null;
   description: string | null;
   coverImageUrl: string | null;
+  status?: string | null;
   lessonProgression: string | null;
   createdAt: string;
-  instructor?: { fullName: string | null } | null;
+  instructor?: { id?: number; fullName: string | null } | null;
   lessons?: Array<{ title: string; order: number }>;
 };
 
@@ -78,6 +100,7 @@ const shapeCourse = (c: CourseRow) => ({
   slug: c.slug,
   description: c.description ?? null,
   coverImageUrl: c.coverImageUrl ?? null,
+  status: isCourseStatus(c.status) ? c.status : 'draft',
   lessonProgression: normalizeProgression(c.lessonProgression),
   createdAt: c.createdAt,
   instructor: c.instructor ? { fullName: c.instructor.fullName ?? null } : null,
@@ -87,9 +110,53 @@ const shapeCourse = (c: CourseRow) => ({
 });
 
 const SAFE_POPULATE = {
-  instructor: { fields: ['fullName'] },
-  lessons: { fields: ['title', 'order'], sort: ['order:asc'] },
+  instructor: { fields: ['id', 'fullName'] },
+  // Only published lessons ride along in a course payload — the catalogue and
+  // the public curriculum list must not name a hidden lesson (D-039). Managers
+  // edit lessons through /api/lessons, which is unfiltered.
+  lessons: {
+    fields: ['title', 'order'],
+    filters: { published: { $eq: true } },
+    sort: ['order:asc'],
+  },
 };
+
+/** Only published lessons count a course as "non-empty" for the public catalogue. */
+const PUBLISHED_LESSON = { lessons: { published: { $eq: true } } };
+
+/**
+ * Flip a course's `status` and write one audit row. Shared by `publish` and
+ * `unpublish`; the route policies (has-role + is-course-owner) have already
+ * proven the caller may touch this course, so there's no ownership check here.
+ * A no-op transition (already in `next`) still returns 200 with the row.
+ */
+async function setCourseStatus(
+  strapi: Core.Strapi,
+  ctx: any,
+  next: CourseStatus,
+) {
+  const course = await strapi.db
+    .query(UID)
+    .findOne({ where: { documentId: ctx.params.id } });
+  if (!course) return ctx.notFound();
+
+  const previous = isCourseStatus(course.status) ? course.status : 'draft';
+  if (previous !== next) {
+    await strapi.db
+      .query(UID)
+      .update({ where: { id: course.id }, data: { status: next } });
+  }
+
+  await strapi.service('api::audit-log.audit-log').record({
+    action: next === 'published' ? 'course.published' : 'course.unpublished',
+    category: 'content',
+    ctx,
+    target: { type: 'course', id: course.documentId, label: course.title },
+    metadata: { title: course.title, from: previous, to: next },
+  });
+
+  ctx.body = { data: shapeCourse({ ...(course as CourseRow), status: next }) };
+}
 
 /**
  * Course controller.
@@ -97,9 +164,11 @@ const SAFE_POPULATE = {
  * - find / findOne: server-controlled population + explicit output shape, so a
  *   student can never pull lesson `content` through a course query
  *   (CVE-2026-27886 is this class). The public catalogue also hides courses
- *   with zero lessons — forced filter, applied last.
+ *   with zero published lessons and any course not `published` — forced
+ *   filters, applied last (D-039).
  * - create: an instructor's course is forced to instructor = ctx.state.user.id.
- *   A body-supplied `instructor` is ignored.
+ *   A body-supplied `instructor` is ignored. New courses start as `draft`.
+ * - publish / unpublish: owner-gated on the route; flips `status` and audits.
  * - delete: refuses with 409 while enrollments exist (D-020).
  */
 export default factories.createCoreController(UID, ({ strapi }) => ({
@@ -134,9 +203,28 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
       // Mirrors the forced owner on `create` and the forced filter on
       // `lesson.find`.
       and.push({ instructor: { id: { $eq: ctx.state.user.id } } });
+    } else if (role === 'student' && ctx.state.user?.id) {
+      // A signed-in student sees the public catalogue OR an `enrolled_only`
+      // course they actually hold an enrolment in (D-039) — so a by-slug detail
+      // lookup for "my course" resolves. The anonymous catalogue list never
+      // reaches this branch (no token), so `enrolled_only` stays unlisted.
+      and.push({
+        $or: [
+          { $and: [{ status: { $eq: 'published' } }, PUBLISHED_LESSON] },
+          {
+            $and: [
+              { status: { $eq: 'enrolled_only' } },
+              { enrollments: { student: { id: { $eq: ctx.state.user.id } } } },
+            ],
+          },
+        ],
+      });
     } else if (!isManager) {
-      // Public catalogue: hide courses with no lessons.
-      and.push({ lessons: { id: { $notNull: true } } });
+      // Public catalogue (D-039): published courses only, and only those with
+      // at least one published lesson. Both are WHERE clauses, so pagination and
+      // `total` track the visible set.
+      and.push({ status: { $eq: 'published' } });
+      and.push(PUBLISHED_LESSON);
     }
 
     const filters = and.length > 0 ? { $and: and } : {};
@@ -144,7 +232,7 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
     const { results, pagination } = await strapi.service(UID).find({
       ...sanitized,
       filters,
-      fields: ['title', 'slug', 'description', 'coverImageUrl', 'lessonProgression', 'createdAt'],
+      fields: ['title', 'slug', 'description', 'coverImageUrl', 'status', 'lessonProgression', 'createdAt'],
       populate: SAFE_POPULATE,
     });
 
@@ -156,11 +244,32 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
   async findOne(ctx) {
     const self = this as unknown as CoreHelpers;
     const entity = (await strapi.service(UID).findOne(ctx.params.id, {
-      fields: ['title', 'slug', 'description', 'coverImageUrl', 'lessonProgression', 'createdAt'],
+      fields: ['title', 'slug', 'description', 'coverImageUrl', 'status', 'lessonProgression', 'createdAt'],
       populate: SAFE_POPULATE,
-    })) as CourseRow | null;
+    })) as (CourseRow & { id?: number }) | null;
 
     if (!entity) return ctx.notFound();
+
+    // Visibility gate (D-039). A `published` course is public. Anything else is
+    // visible only to a manager, the owning instructor, or — for `enrolled_only`
+    // — a student with an active enrolment. Everyone else gets a flat 404, so an
+    // unlisted course can't be probed by id.
+    const status = isCourseStatus(entity.status) ? entity.status : 'draft';
+    if (status !== 'published') {
+      const user = ctx.state.user;
+      const role = user?.role?.type ?? '';
+      const isManager = role === 'admin' || role === 'content-manager';
+      const isOwner = role === 'instructor' && entity.instructor?.id === user?.id;
+      let allowed = isManager || isOwner;
+      if (!allowed && status === 'enrolled_only' && role === 'student' && entity.id) {
+        const enrolled = await strapi.db.query(ENROLLMENT_UID).findOne({
+          where: { dedupeKey: `${user.id}:${entity.id}` },
+        });
+        allowed = Boolean(enrolled);
+      }
+      if (!allowed) return ctx.notFound();
+    }
+
     return self.transformResponse(shapeCourse(entity));
   },
 
@@ -193,12 +302,17 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
       slug?: string;
       instructor?: number;
       lessonProgression?: string;
+      status?: string;
     } = {};
     if (typeof body.title === 'string') data.title = body.title;
     if (typeof body.description === 'string') data.description = body.description;
     if (typeof body.coverImageUrl === 'string')
       data.coverImageUrl = body.coverImageUrl;
     if (instructorId) data.instructor = instructorId;
+    // Visibility (D-039). New courses default to `draft` — the owner publishes
+    // explicitly from the manage screen. A body value is honoured only if it's
+    // one of the known states.
+    data.status = isCourseStatus(body.status) ? body.status : 'draft';
     // Progression rule (D-038). Anything not in the known set — including an
     // absent value — falls back to `free`, so a new course is always unlocked.
     data.lessonProgression = PROGRESSION_MODES.includes(
@@ -220,7 +334,6 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
       // @ts-expect-error Input type rejects a bare relation id; the explicit
       // field allowlist above is the real guard.
       data,
-      status: 'published',
     })) as CourseRow;
 
     await strapi.service('api::audit-log.audit-log').record({
@@ -237,11 +350,12 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
   /**
    * PUT /api/courses/:id. Role + ownership are already enforced on the route
    * (global::has-role + global::is-course-owner), so a student never reaches
-   * here and an instructor only ever hits their own course. We add one guard:
-   * `lessonProgression`, if present, must be one of the three known modes —
-   * otherwise the enum would let a bad value through and every progression
-   * check would then fall back to `free` silently. Everything else is handled
-   * by the core update.
+   * here and an instructor only ever hits their own course. Two guards:
+   * `lessonProgression` and `status`, if present, must be a known value —
+   * otherwise the enum would let a bad value through and the downstream checks
+   * would silently fall back (`free` / `draft`). Everything else is handled by
+   * the core update. Prefer POST /publish + /unpublish for a status change; this
+   * guard just stops a malformed one via the generic PUT.
    */
   async update(ctx) {
     const body = (ctx.request.body?.data ?? {}) as Record<string, unknown>;
@@ -255,7 +369,35 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
         `lessonProgression must be one of: ${PROGRESSION_MODES.join(', ')}`,
       );
     }
+    if ('status' in body && !isCourseStatus(body.status)) {
+      return ctx.badRequest(
+        `status must be one of: ${COURSE_STATUSES.join(', ')}`,
+      );
+    }
     return super.update(ctx);
+  },
+
+  /**
+   * POST /api/courses/:id/publish — owner / manager (route-gated). Makes the
+   * course visible in the public catalogue and open for enrolment.
+   */
+  async publish(ctx) {
+    return setCourseStatus(strapi, ctx, 'published');
+  },
+
+  /**
+   * POST /api/courses/:id/unpublish — owner / manager. body { mode } —
+   * `enrolled_only` (default) keeps current students learning but pulls the
+   * course from the catalogue and blocks new enrolments; `draft` hides it from
+   * everyone but the owner.
+   */
+  async unpublish(ctx) {
+    const raw = (ctx.request.body?.data ?? ctx.request.body ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const mode = raw.mode === 'draft' ? 'draft' : 'enrolled_only';
+    return setCourseStatus(strapi, ctx, mode);
   },
 
   async delete(ctx) {
@@ -310,13 +452,21 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
     });
     if (!course) return ctx.notFound();
 
+    // A `draft` course is off entirely — even a leftover enrolment can't open it
+    // (D-039). `enrolled_only` and `published` fall through to the enrol check.
+    if ((isCourseStatus(course.status) ? course.status : 'draft') === 'draft') {
+      return ctx.forbidden('This course is not currently available');
+    }
+
     const enrolled = await strapi.db.query('api::enrollment.enrollment').findOne({
       where: { dedupeKey: `${userId}:${course.id}` },
     });
     if (!enrolled) return ctx.forbidden('You are not enrolled in this course');
 
+    // Unpublished lessons are invisible to students: excluded from the list, the
+    // progress denominator, progression gates and `nextLessonId` alike (D-039).
     const lessons = (await strapi.db.query('api::lesson.lesson').findMany({
-      where: { course: { id: course.id } },
+      where: { course: { id: course.id }, published: { $ne: false } },
       orderBy: { order: 'asc' },
     })) as Array<{
       id: number;
@@ -341,7 +491,7 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
     );
 
     const quiz = (await strapi.db.query('api::quiz.quiz').findOne({
-      where: { course: { id: course.id } },
+      where: { course: { id: course.id }, published: { $ne: false } },
       orderBy: { id: 'asc' },
     })) as { documentId: string } | null;
 
@@ -402,8 +552,17 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
    * instructor. The batched query PERFORMANCE.md #1 is about: three flat
    * queries (roster, lesson ids, all completions), then O(n) in memory — not
    * computeProgress in a loop over students.
+   *
+   * Query: page (default 1), pageSize (default 20, max 100). The stuck-first
+   * sort needs every student's computed percent, so the full roster is scored
+   * in memory and then the requested slice is returned with pagination meta.
    */
   async studentProgress(ctx) {
+    const page = Math.max(1, Number(ctx.query.page) || 1);
+    // `pageSize=all` — internal callers (instructor home snapshot) that need
+    // the whole roster to compute course-wide averages.
+    const wantsAll = ctx.query.pageSize === 'all';
+
     const course = await strapi.db.query(UID).findOne({
       where: { documentId: ctx.params.id },
     });
@@ -420,9 +579,11 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
       student?: { id: number; fullName: string | null; username: string } | null;
     }>;
 
-    const lessons = (await strapi.db
-      .query('api::lesson.lesson')
-      .findMany({ where: { course: { id: course.id } } })) as Array<{ id: number }>;
+    // Published lessons only, so the instructor's percentages match what each
+    // student actually sees on /learn (D-039).
+    const lessons = (await strapi.db.query('api::lesson.lesson').findMany({
+      where: { course: { id: course.id }, published: { $ne: false } },
+    })) as Array<{ id: number }>;
 
     const completions = (await strapi.db
       .query('api::lesson-completion.lesson-completion')
@@ -466,7 +627,20 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
       }))
       .sort((a, b) => a.progress.percent - b.progress.percent); // stuck first
 
-    ctx.body = { data };
+    const total = data.length;
+    const pageSize = wantsAll
+      ? Math.max(1, total)
+      : clampPageSize(ctx.query.pageSize);
+    const pageCount = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(page, pageCount);
+    const start = (safePage - 1) * pageSize;
+
+    ctx.body = {
+      data: data.slice(start, start + pageSize),
+      meta: {
+        pagination: { page: safePage, pageSize, pageCount, total },
+      },
+    };
   },
 
   /**

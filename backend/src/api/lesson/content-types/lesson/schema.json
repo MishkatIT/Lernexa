@@ -22,6 +22,11 @@
     "videoUrl": {
       "type": "string"
     },
+    "published": {
+      "type": "boolean",
+      "default": true,
+      "required": true
+    },
     "order": {
       "type": "integer",
       "required": true

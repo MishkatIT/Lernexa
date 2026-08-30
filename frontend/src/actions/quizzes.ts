@@ -87,6 +87,33 @@ export async function deleteCourseQuiz(
   }
 }
 
+/** D-039 — hide/show the course quiz. Recorded attempts are untouched; an
+ *  unpublished quiz just stops appearing in the student's /learn view. */
+export async function setQuizPublished(
+  courseDocumentId: string,
+  quizId: string,
+  published: boolean,
+): Promise<ActionResult> {
+  const token = await getToken();
+  if (!token) return NO_SESSION;
+  try {
+    await strapiFetch(
+      `/api/quizzes/${quizId}/${published ? "publish" : "unpublish"}`,
+      { method: "POST", token },
+    );
+    revalidatePath(`/manage/courses/${courseDocumentId}`);
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof StrapiError
+          ? err.message
+          : `Could not ${published ? "publish" : "hide"} the quiz.`,
+    };
+  }
+}
+
 export async function submitQuiz(
   quizDocumentId: string,
   answers: { questionId: number; selectedOptionId: number | null }[],

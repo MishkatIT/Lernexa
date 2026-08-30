@@ -26,6 +26,12 @@
     "coverImageUrl": {
       "type": "string"
     },
+    "status": {
+      "type": "enumeration",
+      "enum": ["draft", "enrolled_only", "published"],
+      "default": "draft",
+      "required": true
+    },
     "lessonProgression": {
       "type": "enumeration",
       "enum": ["free", "complete_locked", "open_locked"],

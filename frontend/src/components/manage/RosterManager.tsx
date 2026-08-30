@@ -1,19 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import {
   addEnrollments,
   removeEnrollments,
   type AddEnrollmentRow,
 } from "@/actions/enrollments";
-import type { StudentProgressRow } from "@/lib/courses";
+import {
+  ROSTER_DEFAULT_PAGE_SIZE,
+  ROSTER_PAGE_SIZES,
+  type StudentProgressRow,
+} from "@/lib/roster";
 import { shortDate } from "@/lib/format";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 import { Textarea } from "@/components/ui/Textarea";
 import { useToast } from "@/components/ui/Toast";
 import { ProgressBar } from "@/components/progress/ProgressBar";
+import { Select } from "@/components/ui/Select";
 import { Table, THead, TBody, Tr, Th, Td } from "@/components/ui/Table";
 
 const OUTCOME_COPY: Record<AddEnrollmentRow["status"], string> = {
@@ -126,12 +132,21 @@ function AddPanel({
 
 export function RosterManager({
   courseDocumentId,
-  students,
+  rows,
+  total,
+  page,
+  pageSize,
+  pageCount,
 }: {
   courseDocumentId: string;
-  students: StudentProgressRow[];
+  rows: StudentProgressRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { toast } = useToast();
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -140,8 +155,24 @@ export function RosterManager({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const ids = useMemo(() => students.map((s) => s.student.id), [students]);
-  const allSelected = ids.length > 0 && selected.size === ids.length;
+  const start = (page - 1) * pageSize;
+
+  /** URL for a given page / page size — server re-fetches that slice. The
+   *  `#students` hash keeps the viewport on this section after navigation. */
+  function rosterHref(nextPage: number, nextSize: number) {
+    const q = new URLSearchParams();
+    if (nextSize !== ROSTER_DEFAULT_PAGE_SIZE) {
+      q.set("students_per", String(nextSize));
+    }
+    if (nextPage > 1) q.set("students_page", String(nextPage));
+    const qs = q.toString();
+    return `${pathname}${qs ? `?${qs}` : ""}#students`;
+  }
+
+  // "Select all" acts on the rows currently on screen. Selection is kept in a
+  // Set of ids, so it survives paging for cross-page bulk removal.
+  const allSelected =
+    rows.length > 0 && rows.every((s) => selected.has(s.student.id));
 
   function toggle(id: number) {
     setSelected((prev) => {
@@ -153,7 +184,13 @@ export function RosterManager({
   }
 
   function toggleAll() {
-    setSelected(allSelected ? new Set() : new Set(ids));
+    const pageIds = rows.map((s) => s.student.id);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allSelected) pageIds.forEach((id) => next.delete(id));
+      else pageIds.forEach((id) => next.add(id));
+      return next;
+    });
   }
 
   function resetRemoveUI() {
@@ -186,7 +223,7 @@ export function RosterManager({
     <div className="mt-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-small text-ink-500">
-          {students.length} enrolled
+          {total} enrolled
           {selected.size > 0 ? ` · ${selected.size} selected` : ""}
         </p>
         <Button
@@ -271,7 +308,7 @@ export function RosterManager({
         </div>
       ) : null}
 
-      {students.length === 0 ? (
+      {total === 0 ? (
         <p className="mt-4 text-body text-ink-500">No students enrolled yet.</p>
       ) : (
         <div className="mt-4 rounded-lg border border-ink-200">
@@ -292,7 +329,7 @@ export function RosterManager({
               <Th>Last activity</Th>
             </THead>
             <TBody>
-              {students.map((s) => (
+              {rows.map((s) => (
                 <Tr key={s.student.id}>
                   <Td>
                     <input
@@ -322,6 +359,65 @@ export function RosterManager({
           </Table>
         </div>
       )}
+
+      {total > 0 ? (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-small text-ink-500">
+          <div className="flex items-center gap-2">
+            <span>Show</span>
+            <Select
+              label="Students per page"
+              hideLabel
+              value={pageSize}
+              onChange={(e) =>
+                router.push(rosterHref(1, Number(e.target.value)))
+              }
+              className="text-small"
+            >
+              {ROSTER_PAGE_SIZES.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </Select>
+            <span>per page</span>
+          </div>
+
+          {pageCount > 1 ? (
+            <div className="flex items-center gap-4">
+              <span>
+                {start + 1}–{Math.min(start + pageSize, total)} of {total}
+              </span>
+              <div className="flex items-center gap-3">
+                {page > 1 ? (
+                  <Link
+                    href={rosterHref(page - 1, pageSize)}
+                    rel="prev"
+                    className="text-accent-600 hover:underline"
+                  >
+                    ← Prev
+                  </Link>
+                ) : (
+                  <span className="text-ink-500/50">← Prev</span>
+                )}
+                <span>
+                  Page {page} of {pageCount}
+                </span>
+                {page < pageCount ? (
+                  <Link
+                    href={rosterHref(page + 1, pageSize)}
+                    rel="next"
+                    className="text-accent-600 hover:underline"
+                  >
+                    Next →
+                  </Link>
+                ) : (
+                  <span className="text-ink-500/50">Next →</span>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

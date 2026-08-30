@@ -84,6 +84,7 @@ export default async function CataloguePage({
                 instructor={c.instructor?.fullName}
                 description={c.description}
                 lessons={c.lessons.length}
+                coverImageUrl={c.coverImageUrl}
                 progress={progressByCourse.get(c.documentId) ?? null}
               />
             ))}

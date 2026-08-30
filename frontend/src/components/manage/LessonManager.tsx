@@ -7,11 +7,13 @@ import {
   createLesson,
   updateLesson,
   deleteLesson,
+  setLessonPublished,
 } from "@/actions/lessons";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Alert } from "@/components/ui/Alert";
+import { Badge } from "@/components/ui/Badge";
 import { useToast } from "@/components/ui/Toast";
 
 export type ManagedLesson = {
@@ -20,6 +22,8 @@ export type ManagedLesson = {
   order: number;
   content: string;
   videoUrl: string;
+  /** D-039 — false hides the lesson from students and from progress totals. */
+  published: boolean;
 };
 
 type Draft = { title: string; order: string; content: string; videoUrl: string };
@@ -82,6 +86,19 @@ export function LessonManager({
     router.refresh();
   }
 
+  async function togglePublished(docId: string, next: boolean) {
+    setError(null);
+    setBusy(true);
+    const res = await setLessonPublished(docId, courseDocumentId, next);
+    setBusy(false);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    toast(next ? "Lesson published" : "Lesson hidden from students");
+    router.refresh();
+  }
+
   return (
     <div className="flex flex-col gap-3">
       {error ? <Alert>{error}</Alert> : null}
@@ -119,11 +136,28 @@ export function LessonManager({
                 <span className="font-mono text-small text-ink-500">
                   {String(lesson.order).padStart(2, "0")}
                 </span>
-                <span className="truncate text-body text-ink-900">
+                <span
+                  className={`truncate text-body ${
+                    lesson.published ? "text-ink-900" : "text-ink-500"
+                  }`}
+                >
                   {lesson.title}
                 </span>
+                {!lesson.published ? (
+                  <Badge tone="warning">Hidden</Badge>
+                ) : null}
               </span>
               <span className="flex shrink-0 gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    togglePublished(lesson.documentId, !lesson.published)
+                  }
+                  disabled={busy}
+                >
+                  {lesson.published ? "Hide" : "Publish"}
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"

@@ -16,6 +16,7 @@ export function CourseCard({
   description,
   lessons,
   progress,
+  coverImageUrl,
 }: {
   href: string;
   title: string;
@@ -23,49 +24,67 @@ export function CourseCard({
   description?: string | null;
   lessons: number;
   progress?: { completed: number; total: number } | null;
+  coverImageUrl?: string | null;
 }) {
   return (
-    <Card as={Link} href={href} interactive className="flex flex-col p-5">
-      <p className="text-h3 text-ink-900">{title}</p>
-      {instructor ? (
-        <p className="mt-1 text-small text-ink-500">Taught by {instructor}</p>
+    <Card
+      as={Link}
+      href={href}
+      interactive
+      className="flex flex-col overflow-hidden"
+    >
+      {coverImageUrl ? (
+        /* eslint-disable-next-line @next/next/no-img-element -- arbitrary host; no next/image pipeline */
+        <img
+          src={coverImageUrl}
+          alt=""
+          loading="lazy"
+          className="aspect-[16/9] w-full border-b border-ink-200 object-cover"
+        />
       ) : null}
 
-      {description ? (
-        <p className="mt-2.5 line-clamp-2 text-body text-ink-700">
-          {description}
-        </p>
-      ) : null}
-
-      <div className="mt-4 flex items-center gap-2 text-small text-ink-500">
-        <span>
-          {lessons} lesson{lessons === 1 ? "" : "s"}
-        </span>
-        {lessons > 0 ? (
-          <>
-            <span aria-hidden>·</span>
-            <span>{estimateHours(lessons)}</span>
-          </>
+      <div className="flex flex-1 flex-col p-5">
+        <p className="text-h3 text-ink-900">{title}</p>
+        {instructor ? (
+          <p className="mt-1 text-small text-ink-500">Taught by {instructor}</p>
         ) : null}
-      </div>
 
-      {progress && progress.total > 0 ? (
-        <div className="mt-3">
-          <ProgressBar
-            completed={progress.completed}
-            total={progress.total}
-            size="sm"
-            showLabel={false}
-          />
-          <p className="mt-2 text-small font-medium text-accent-600">
-            Continue →
+        {description ? (
+          <p className="mt-2.5 line-clamp-2 text-body text-ink-700">
+            {description}
           </p>
+        ) : null}
+
+        <div className="mt-4 flex items-center gap-2 text-small text-ink-500">
+          <span>
+            {lessons} lesson{lessons === 1 ? "" : "s"}
+          </span>
+          {lessons > 0 ? (
+            <>
+              <span aria-hidden>·</span>
+              <span>{estimateHours(lessons)}</span>
+            </>
+          ) : null}
         </div>
-      ) : (
-        <p className="mt-3 text-small font-medium text-accent-600">
-          {lessons > 0 ? "Start →" : "Coming soon"}
-        </p>
-      )}
+
+        {progress && progress.total > 0 ? (
+          <div className="mt-3">
+            <ProgressBar
+              completed={progress.completed}
+              total={progress.total}
+              size="sm"
+              showLabel={false}
+            />
+            <p className="mt-2 text-small font-medium text-accent-600">
+              Continue →
+            </p>
+          </div>
+        ) : (
+          <p className="mt-3 text-small font-medium text-accent-600">
+            {lessons > 0 ? "Start →" : "Coming soon"}
+          </p>
+        )}
+      </div>
     </Card>
   );
 }

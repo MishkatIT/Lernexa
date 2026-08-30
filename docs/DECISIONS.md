@@ -494,6 +494,51 @@ surface, and it would drift from `order` the moment a lesson is reordered. A
 per-lesson `isLocked` flag was also rejected: lock state is derived from the
 student's progress, not stored.
 
+### D-039 — Course / lesson / quiz visibility as an explicit field, owner-toggled
+
+**Decision:** a course carries `status ∈ {draft, enrolled_only, published}`; a
+lesson and a quiz each carry a `published` boolean. Owner / manager flips them
+through `POST /api/{courses,lessons,quizzes}/:id/{publish,unpublish}` (same gate
+as edit/delete), each writing one audit row. New courses start `draft`; new
+lessons/quizzes start `published`.
+
+- `published` — in the public catalogue, open for enrolment.
+- `enrolled_only` — catalogue-hidden, no new enrolments; students already
+  enrolled keep `/learn` + quiz access. ("Closed cohort still finishing.")
+- `draft` — owner-only; `/learn` returns 403 even for a leftover enrolment.
+- An unpublished lesson leaves every student surface: the catalogue non-empty
+  check, `/learn`, progression gates, and every progress denominator
+  (`/enrollments/me`, `student-progress`, the `complete` reply). Recorded
+  completions are kept, just not counted while hidden.
+- An unpublished quiz 404s on `/take` + `/submit` and drops out of `/learn`;
+  recorded attempts are untouched.
+
+**Why not native Draft & Publish:** `draftAndPublish` stays **off** on all three.
+Turning it on rewrites every query (a `status` param on each `find`, a
+draft/published id split) and collides with the forced-ownership-filter pattern
+(D-005). An explicit field gated by forced `$and` filters is the same shape as
+every other scope in the codebase and touches only the queries that care.
+
+**Relationship to earlier decisions:** this is **not** D-021 (still no
+scheduling — no `publishAt`, no cron) and **not** D-025 (still no draft → review
+→ publish workflow — there is no reviewer role; the owner is the only actor). It
+is a single-actor visibility toggle, the same two-state idea D-006 already
+accepted for the blog, extended to a third "enrolled-only" state because a course
+has a roster a blog post doesn't. It also supersedes the "catalogue hides empty
+courses" heuristic (Tier 2.5) as the *primary* visibility control — that filter
+stays as a secondary guard so a `published` course with no published lessons
+still can't reach the catalogue.
+
+**Tradeoff:** `findOne` does one extra enrolment read for the `enrolled_only`
+case; `/learn` and the progress paths each carry one more `where` clause. Public
+list helpers (`getCourseByDocumentId`, `getCourseBySlug`) now forward the
+caller's token so the backend can resolve visibility per role.
+
+**Rejected alternative:** a binary course `published` flag — simpler, but there's
+no way to retire a course from the catalogue without also locking out the cohort
+mid-way. A per-lesson `draft`/`review`/`published` enum — that's D-025's workflow
+with extra steps.
+
 ---
 
 ## Template

@@ -2,10 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { saveCourseQuiz, deleteCourseQuiz } from "@/actions/quizzes";
+import {
+  saveCourseQuiz,
+  deleteCourseQuiz,
+  setQuizPublished,
+} from "@/actions/quizzes";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Alert } from "@/components/ui/Alert";
+import { Badge } from "@/components/ui/Badge";
 import { useToast } from "@/components/ui/Toast";
 import type { BuilderQuestion, ManagedQuiz } from "@/lib/quiz";
 
@@ -85,9 +90,44 @@ export function QuizBuilder({
     router.refresh();
   }
 
+  async function togglePublished(next: boolean) {
+    if (!quiz) return;
+    setBusy(true);
+    setError(null);
+    const res = await setQuizPublished(courseDocumentId, quiz.documentId, next);
+    setBusy(false);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    toast(next ? "Quiz published" : "Quiz hidden from students");
+    router.refresh();
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {error ? <Alert>{error}</Alert> : null}
+
+      {quiz ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <Badge tone={quiz.published ? "success" : "warning"}>
+            {quiz.published ? "Live for students" : "Hidden"}
+          </Badge>
+          <span className="text-small text-ink-500">
+            {quiz.published
+              ? "Enrolled students can take this quiz."
+              : "Students don't see this quiz. Recorded attempts are kept."}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={busy}
+            onClick={() => togglePublished(!quiz.published)}
+          >
+            {quiz.published ? "Hide from students" : "Publish"}
+          </Button>
+        </div>
+      ) : null}
 
       <Input
         label="Quiz title"

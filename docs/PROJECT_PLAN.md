@@ -94,7 +94,7 @@ for almost no time. Build them inside the phase they belong to, not as a separat
 | **Global banner** (message/severity/link/dismissal) | ~3h for "an admin can display a message." Those hours buy two video rehearsals instead. `registrationEnabled` kept — see Tier 2.5 (D-026). |
 | **Scheduled publishing** | The insight (`publishAt <= now()` filter, not a cron) is recorded in DECISIONS.md. The code isn't worth an hour (D-021). |
 | **Revision / version history** | A subsystem, not a feature. Multi-day (D-022). |
-| **Draft → review → publish workflow** | No reviewer role exists in the matrix. Would mean inventing a requirement — a negative signal (D-025). |
+| **Draft → review → publish workflow** | No reviewer role exists in the matrix. Would mean inventing a requirement — a negative signal (D-025). *Note: a single-actor visibility toggle (no review step) was later added for courses/lessons/quizzes — D-039. That's the blog's D-006 idea, not this workflow.* |
 | **Notifications (email or in-app)** | Multi-day for delivery infrastructure; nothing at demo scale generates a notifiable event (D-023). |
 | **Student activity-history page** | Already surfaced where it matters — "last activity" on the instructor table (D-027). |
 | **Instructor analytics surface** | Per-question stats were tempting but land below six Tier 3 items that already won't all ship (D-028). |

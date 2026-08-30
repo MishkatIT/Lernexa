@@ -9,6 +9,8 @@ export type BuilderQuestion = { prompt: string; options: BuilderOption[] };
 export type ManagedQuiz = {
   documentId: string;
   title: string;
+  /** D-039 — false means students don't see the quiz in /learn. */
+  published: boolean;
   questions: BuilderQuestion[];
 };
 
@@ -64,6 +66,7 @@ export async function getCourseQuiz(
       data: Array<{
         documentId: string;
         title: string;
+        published?: boolean;
         questions?: Array<{
           prompt: string;
           options?: Array<{ text: string; isCorrect: boolean }>;
@@ -75,6 +78,7 @@ export async function getCourseQuiz(
     return {
       documentId: q.documentId,
       title: q.title,
+      published: q.published !== false,
       questions: (q.questions ?? []).map((qq) => ({
         prompt: qq.prompt,
         options: (qq.options ?? []).map((o) => ({

@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Serif, IBM_Plex_Mono } from "next/font/google";
-import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
+import { NoFlashScript } from "@/components/theme/NoFlashScript";
 import { ToastProvider } from "@/components/ui/Toast";
-import { NO_FLASH_SCRIPT } from "@/lib/theme";
 
 // One superfamily, three jobs: Sans for UI, Serif for long-form reading
 // (lesson + blog body), Mono for ids, timestamps and code.
@@ -52,6 +51,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
       className={`${plexSans.variable} ${plexSerif.variable} ${plexMono.variable} antialiased`}
     >
+      <head>
+        <NoFlashScript />
+      </head>
       {/* suppressHydrationWarning: the no-flash script and browser extensions
           both mutate <html>/<body> before hydration. Scoped one level deep —
           real content mismatches still warn. */}
@@ -59,11 +61,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         suppressHydrationWarning
         className="flex min-h-dvh flex-col overflow-x-clip"
       >
-        <Script
-          id="no-flash-theme"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{ __html: NO_FLASH_SCRIPT }}
-        />
         <ThemeProvider>
           <ToastProvider>{children}</ToastProvider>
         </ThemeProvider>

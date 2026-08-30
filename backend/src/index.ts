@@ -33,6 +33,10 @@ const COURSE_WRITE = [
   'api::course.course.create',
   'api::course.course.update',
   'api::course.course.delete',
+  // Visibility toggle (D-039). Route policies still limit an instructor to
+  // their own courses.
+  'api::course.course.publish',
+  'api::course.course.unpublish',
 ];
 const LESSON_ALL = [
   'api::lesson.lesson.find',
@@ -40,8 +44,18 @@ const LESSON_ALL = [
   'api::lesson.lesson.create',
   'api::lesson.lesson.update',
   'api::lesson.lesson.delete',
+  'api::lesson.lesson.publish',
+  'api::lesson.lesson.unpublish',
 ];
 const COURSE_READ = ['api::course.course.find', 'api::course.course.findOne'];
+
+// Roster management (D-039 sibling). Route policies (has-role + is-course-owner)
+// still limit an instructor to their own course; this is layer 2 — may the role
+// call the action at all.
+const COURSE_ROSTER = [
+  'api::course.course.addEnrollments',
+  'api::course.course.removeEnrollments',
+];
 
 // Phase 4 — learning + progress.
 const STUDENT_LEARNING = [
@@ -60,6 +74,8 @@ const QUIZ_MANAGE = [
   'api::quiz.quiz.create',
   'api::quiz.quiz.update',
   'api::quiz.quiz.delete',
+  'api::quiz.quiz.publish',
+  'api::quiz.quiz.unpublish',
 ];
 const STUDENT_QUIZ = [
   'api::quiz.quiz.take',
@@ -115,6 +131,7 @@ const ROLE_GRANTS: Record<string, string[]> = {
     ...SELF_SERVICE,
     ...COURSE_READ,
     ...COURSE_WRITE,
+    ...COURSE_ROSTER,
     ...LESSON_ALL,
     ...QUIZ_MANAGE,
     ...STUDENT_PROGRESS_VIEW,
@@ -127,6 +144,7 @@ const ROLE_GRANTS: Record<string, string[]> = {
     ...SELF_SERVICE,
     ...COURSE_READ,
     ...COURSE_WRITE,
+    ...COURSE_ROSTER,
     ...LESSON_ALL,
     ...QUIZ_MANAGE,
     ...STUDENT_PROGRESS_VIEW,
@@ -138,6 +156,7 @@ const ROLE_GRANTS: Record<string, string[]> = {
     ...SELF_SERVICE,
     ...COURSE_READ,
     ...COURSE_WRITE,
+    ...COURSE_ROSTER,
     ...LESSON_ALL,
     ...QUIZ_MANAGE,
     ...STUDENT_PROGRESS_VIEW,
@@ -168,6 +187,7 @@ const ALL_MANAGED_ACTIONS = new Set<string>([
   ...SELF_SERVICE,
   ...COURSE_READ,
   ...COURSE_WRITE,
+  ...COURSE_ROSTER,
   ...LESSON_ALL,
   ...QUIZ_MANAGE,
   ...STUDENT_LEARNING,

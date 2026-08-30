@@ -2,7 +2,7 @@ import "server-only";
 
 import { strapiFetch } from "./strapi";
 import { getToken } from "./session";
-import { listAllManagedCourses, getStudentProgress } from "./courses";
+import { listAllManagedCourses, getAllStudentProgress } from "./courses";
 import { listManagedPosts } from "./blog";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -44,7 +44,7 @@ export async function getInstructorSnapshot(): Promise<InstructorSnapshot> {
   const perCourse = await Promise.all(
     courses.map(async (c) => ({
       course: c,
-      rows: await getStudentProgress(c.documentId),
+      rows: await getAllStudentProgress(c.documentId),
     })),
   );
 
