@@ -250,6 +250,55 @@ describe('enroll → learn → complete → progress (free mode)', () => {
   });
 });
 
+describe('GET /enrollments/me/dashboard — one-shot aggregate', () => {
+  let stu: TestUser;
+  beforeAll(async () => {
+    stu = await ensureStudent('audit-dashboard');
+    for (const lid of lessonIds) {
+      await api('DELETE', `/api/lesson-completions/${lid}`, { token: stu.token });
+    }
+    await api('POST', '/api/enrollments/enroll', {
+      token: stu.token,
+      body: { courseId },
+    });
+    await api('POST', '/api/lesson-completions/complete', {
+      token: stu.token,
+      body: { lessonId: lessonIds[0] },
+    });
+  });
+
+  it('returns enrolments with derived progress, attempts, and a resume card', async () => {
+    const r = await api('GET', '/api/enrollments/me/dashboard', { token: stu.token });
+    expect(r.status).toBe(200);
+    const { enrollments, attempts, resume } = r.body.data;
+
+    const row = enrollments.find((e: any) => e.course.id === courseId);
+    expect(row.progress).toMatchObject({ completed: 1, total: 3, percent: 33 });
+
+    expect(Array.isArray(attempts)).toBe(true);
+
+    // in-progress course is the resume pick; next lesson is L2 (L1 done)
+    expect(resume.course.id).toBe(courseId);
+    expect(resume.progress).toMatchObject({ completed: 1, total: 3 });
+    expect(resume.nextLessonTitle).toBe(`${AUDIT_PREFIX} L2`);
+  });
+
+  it('matches the single-purpose endpoints it replaces', async () => {
+    const [agg, en, at] = await Promise.all([
+      api('GET', '/api/enrollments/me/dashboard', { token: stu.token }),
+      api('GET', '/api/enrollments/me', { token: stu.token }),
+      api('GET', '/api/quiz-attempts/me', { token: stu.token }),
+    ]);
+    expect(agg.body.data.enrollments.length).toBe(en.body.data.length);
+    expect(agg.body.data.attempts.length).toBe(at.body.data.length);
+  });
+
+  it('is student-only (instructor → 403)', async () => {
+    const r = await api('GET', '/api/enrollments/me/dashboard', { token: T.instructor! });
+    expect(r.status).toBe(403);
+  });
+});
+
 describe('quiz — take (no answer key) → submit (server-graded) → stored review', () => {
   let stu: TestUser;
   beforeAll(async () => {

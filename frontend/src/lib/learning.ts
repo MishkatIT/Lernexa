@@ -3,6 +3,7 @@ import "server-only";
 import { strapiFetch, StrapiError } from "./strapi";
 import { getToken } from "./session";
 import type { LessonProgressionMode } from "./schemas";
+import type { MyAttempt } from "./quiz";
 
 export type Progress = { completed: number; total: number; percent: number };
 
@@ -55,6 +56,33 @@ export async function getMyEnrollments(): Promise<MyEnrollment[]> {
   if (!token) return [];
   const res = await strapiFetch<{ data: MyEnrollment[] }>(
     "/api/enrollments/me",
+    { token },
+  );
+  return res.data;
+}
+
+export type DashboardResume = {
+  course: { id: string; title: string; slug: string | null };
+  progress: Progress;
+  nextLessonTitle: string | null;
+};
+
+export type StudentDashboard = {
+  enrollments: MyEnrollment[];
+  attempts: MyAttempt[];
+  resume: DashboardResume | null;
+};
+
+/**
+ * The whole student dashboard in one request — enrolments + progress, quiz
+ * attempts, and the resume card. Replaces getMyEnrollments + getMyAttempts +
+ * getLearnContext (3 sequential round trips → 1).
+ */
+export async function getStudentDashboard(): Promise<StudentDashboard> {
+  const token = await getToken();
+  if (!token) return { enrollments: [], attempts: [], resume: null };
+  const res = await strapiFetch<{ data: StudentDashboard }>(
+    "/api/enrollments/me/dashboard",
     { token },
   );
   return res.data;

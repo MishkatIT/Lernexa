@@ -61,6 +61,7 @@ const COURSE_ROSTER = [
 const STUDENT_LEARNING = [
   'api::enrollment.enrollment.enroll',
   'api::enrollment.enrollment.me',
+  'api::enrollment.enrollment.dashboard',
   'api::lesson-completion.lesson-completion.complete',
   'api::lesson-completion.lesson-completion.uncomplete',
   'api::course.course.learn',

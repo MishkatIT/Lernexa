@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireRole } from "@/lib/guards";
-import { getMyEnrollments, getLearnContext } from "@/lib/learning";
-import { getMyAttempts } from "@/lib/quiz";
+import { getStudentDashboard } from "@/lib/learning";
 import { Container } from "@/components/ui/Container";
 import { Card } from "@/components/ui/Card";
 import { Stat } from "@/components/ui/Stat";
@@ -17,25 +16,13 @@ export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
   const user = await requireRole("student");
-  const [enrollments, attempts] = await Promise.all([
-    getMyEnrollments(),
-    getMyAttempts(),
-  ]);
+  const { enrollments, attempts, resume } = await getStudentDashboard();
 
   // Sort for display: in progress first, then not started, then completed.
   const rank = (p: number) => (p > 0 && p < 100 ? 0 : p === 0 ? 1 : 2);
   const sorted = [...enrollments].sort(
     (a, b) => rank(a.progress.percent) - rank(b.progress.percent),
   );
-  const resume = sorted[0];
-  const resumeCtx =
-    resume && resume.progress.total > 0
-      ? await getLearnContext(resume.course.id)
-      : null;
-  const nextLesson =
-    resumeCtx?.lessons.find((l) => l.id === resumeCtx.nextLessonId) ??
-    resumeCtx?.lessons.find((l) => !l.completed) ??
-    null;
 
   const inProgress = enrollments.filter(
     (e) => e.progress.percent > 0 && e.progress.percent < 100,
@@ -110,8 +97,8 @@ export default async function DashboardPage() {
                 <p className="mt-0.5 truncate text-small text-ink-500">
                   {resume.progress.total === 0
                     ? "This course has no lessons yet"
-                    : nextLesson
-                      ? `Up next — ${nextLesson.title}`
+                    : resume.nextLessonTitle
+                      ? `Up next — ${resume.nextLessonTitle}`
                       : `${resume.progress.completed} of ${resume.progress.total} lessons`}
                 </p>
               </div>
