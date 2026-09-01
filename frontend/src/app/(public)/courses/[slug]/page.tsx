@@ -23,11 +23,16 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 export default async function CourseDetailPage({ params }: Params) {
   const { slug } = await params;
-  const course =
-    (await getCourseBySlug(slug)) ?? (await getCourseByDocumentId(slug));
+
+  // Course lookup and the session read don't depend on each other — run them
+  // together instead of stacking two round trips.
+  const [courseBySlug, user] = await Promise.all([
+    getCourseBySlug(slug),
+    getCurrentUser(),
+  ]);
+  const course = courseBySlug ?? (await getCourseByDocumentId(slug));
   if (!course) notFound();
 
-  const user = await getCurrentUser();
   const isStudent = user?.role?.type === "student";
   const learn = isStudent ? await getLearnContext(course.documentId) : null;
   const enrolled = Boolean(learn);

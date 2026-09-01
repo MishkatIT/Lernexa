@@ -1,4 +1,5 @@
 import type { Core } from '@strapi/strapi';
+import { accountStateCache } from '../../../middlewares/account-state-cache';
 
 const USER = 'plugin::users-permissions.user';
 const ROLE = 'plugin::users-permissions.role';
@@ -179,6 +180,11 @@ export default {
           }
         : { blocked: false, blockedReason: null, blockedAt: null, blockedBy: null },
     });
+
+    // account-state.ts memoises `blocked` per user for a short TTL — drop the
+    // stale entry now so this change bites on the target's very next request
+    // (D-013), not TTL seconds later.
+    accountStateCache.bust(targetId);
 
     await s.service('api::audit-log.audit-log').record({
       action: blocked ? 'user.blocked' : 'user.unblocked',

@@ -2,7 +2,7 @@ import "server-only";
 
 import { strapiFetch } from "./strapi";
 import { getToken } from "./session";
-import { listAllManagedCourses, getAllStudentProgress } from "./courses";
+import { listAllManagedCourses } from "./courses";
 import { listManagedPosts } from "./blog";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -35,80 +35,30 @@ export type InstructorSnapshot = {
   }[];
 };
 
+const EMPTY_SNAPSHOT: InstructorSnapshot = {
+  totals: { courses: 0, students: 0, lessons: 0, avgPercent: 0 },
+  stuckStudents: [],
+  strugglingCourses: [],
+  courses: [],
+};
+
 /** Instructor home — "which students are stuck?". Exceptions, not totals.
- *  The backend scopes the course list to the caller (instructor) from the token. */
+ *  One request: the backend does the cross-course rollup in four flat queries
+ *  (GET /api/courses/manage/snapshot) and scopes to the caller's own courses.
+ *  Replaces the old 1 + N fan-out (list courses, then a student-progress call
+ *  per course). */
 export async function getInstructorSnapshot(): Promise<InstructorSnapshot> {
-  const courses = await listAllManagedCourses();
-  const cutoff = Date.now() - WEEK_MS;
-
-  const perCourse = await Promise.all(
-    courses.map(async (c) => ({
-      course: c,
-      rows: await getAllStudentProgress(c.documentId),
-    })),
-  );
-
-  const stuckStudents: InstructorSnapshot["stuckStudents"] = [];
-  const strugglingCourses: InstructorSnapshot["strugglingCourses"] = [];
-  const courseList: InstructorSnapshot["courses"] = [];
-  const studentIds = new Set<number>();
-  let percentSum = 0;
-  let rowCount = 0;
-
-  for (const { course, rows } of perCourse) {
-    const avg =
-      rows.length > 0
-        ? Math.round(
-            rows.reduce((s, r) => s + r.progress.percent, 0) / rows.length,
-          )
-        : 0;
-
-    courseList.push({
-      id: course.documentId,
-      title: course.title,
-      enrolled: rows.length,
-      lessons: course.lessons.length,
-      avgPercent: avg,
-    });
-
-    for (const r of rows) {
-      studentIds.add(r.student.id);
-      percentSum += r.progress.percent;
-      rowCount += 1;
-      if (
-        r.progress.percent === 0 &&
-        new Date(r.enrolledAt).getTime() < cutoff
-      ) {
-        stuckStudents.push({
-          name: r.student.name,
-          course: course.title,
-          courseId: course.documentId,
-          enrolledAt: r.enrolledAt,
-        });
-      }
-    }
-
-    if (rows.length > 0 && avg < 30) {
-      strugglingCourses.push({
-        id: course.documentId,
-        title: course.title,
-        enrolled: rows.length,
-        avgPercent: avg,
-      });
-    }
+  const token = await getToken();
+  if (!token) return EMPTY_SNAPSHOT;
+  try {
+    const res = await strapiFetch<{ data: InstructorSnapshot }>(
+      "/api/courses/manage/snapshot",
+      { token },
+    );
+    return res.data;
+  } catch {
+    return EMPTY_SNAPSHOT;
   }
-
-  return {
-    totals: {
-      courses: courses.length,
-      students: studentIds.size,
-      lessons: courseList.reduce((s, c) => s + c.lessons, 0),
-      avgPercent: rowCount > 0 ? Math.round(percentSum / rowCount) : 0,
-    },
-    stuckStudents,
-    strugglingCourses,
-    courses: courseList,
-  };
 }
 
 export type Worklist = {

@@ -66,7 +66,13 @@ const STUDENT_LEARNING = [
   'api::lesson-completion.lesson-completion.uncomplete',
   'api::course.course.learn',
 ];
-const STUDENT_PROGRESS_VIEW = ['api::course.course.studentProgress'];
+// Manager-only aggregate views of student data (despite the "STUDENT_" name —
+// students never get these). studentProgress = one course's roster;
+// manageSnapshot = the instructor home's cross-course rollup in a single query.
+const STUDENT_PROGRESS_VIEW = [
+  'api::course.course.studentProgress',
+  'api::course.course.manageSnapshot',
+];
 
 // Phase 5 — quizzes.
 const QUIZ_MANAGE = [
@@ -99,6 +105,8 @@ const SETTINGS_READ = ['api::site-setting.site-setting.find'];
 const BLOG_READ = [
   'api::blog-post.blog-post.find',
   'api::blog-post.blog-post.findOne',
+  // Published-count-per-category aggregate for the blog topic bar (public).
+  'api::blog-post.blog-post.categoryCounts',
 ];
 const BLOG_WRITE = [
   'api::blog-post.blog-post.create',

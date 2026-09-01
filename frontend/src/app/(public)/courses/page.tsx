@@ -20,12 +20,13 @@ export default async function CataloguePage({
   const page = Math.max(1, Number(sp.page) || 1);
   const q = sp.q?.trim() || undefined;
 
-  const [{ items: courses, pageCount, total }, user] = await Promise.all([
-    listCatalogue(page, q),
-    getCurrentUser(),
-  ]);
-  const enrollments =
-    user?.role?.type === "student" ? await getMyEnrollments() : [];
+  const [{ items: courses, pageCount, total }, user, myEnrollments] =
+    await Promise.all([
+      listCatalogue(page, q),
+      getCurrentUser(),
+      getMyEnrollments(),
+    ]);
+  const enrollments = user?.role?.type === "student" ? myEnrollments : [];
   const progressByCourse = new Map(
     enrollments.map((e) => [e.course.id, e.progress]),
   );

@@ -18,6 +18,11 @@ export function ClearSessionLink() {
       onClick={async () => {
         setBusy(true);
         await fetch("/api/auth/logout", { method: "POST" });
+        try {
+          localStorage.setItem("lernexa:authed", "0");
+        } catch {
+          /* ignore */
+        }
         router.push("/login");
         router.refresh();
       }}

@@ -49,6 +49,12 @@ export function LoginForm() {
       return;
     }
 
+    try {
+      localStorage.setItem("lernexa:authed", "1");
+    } catch {
+      /* ignore */
+    }
+    window.dispatchEvent(new Event("lernexa:navigate"));
     router.push(returnTo || body.redirectTo || "/dashboard");
     router.refresh();
   }

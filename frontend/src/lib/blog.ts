@@ -93,34 +93,36 @@ export async function listPublishedPosts(
   return { items: res.data, page: p.page, pageCount: p.pageCount, total: p.total };
 }
 
-/** Total published-post count per category, for the topic bar. One light query
- *  (no bodies, pageSize 1) per — the loop is small and fixed. */
-export async function countByCategory(
-  category: string,
-): Promise<number> {
+/** Every category's published-post count in ONE request, for the topic bar —
+ *  replaces a per-category fan-out that, on a cold cache, was ~10 concurrent
+ *  backend hits (the burst pattern a small backend handles worst). */
+export async function getCategoryCounts(): Promise<Record<string, number>> {
   try {
-    const res = await strapiFetch<{
-      meta?: { pagination?: { total: number } };
-    }>(
-      `/api/blog-posts?category=${encodeURIComponent(category)}&pagination[pageSize]=1`,
+    const res = await strapiFetch<{ data: Record<string, number> }>(
+      "/api/blog-posts/counts/by-category",
       PUBLIC_POSTS,
     );
-    return res.meta?.pagination?.total ?? 0;
+    return res.data ?? {};
   } catch {
-    return 0;
+    return {};
   }
 }
 
 export async function getPublishedPost(slug: string): Promise<Post | null> {
+  // Published articles are public and identical for everyone — cache both the
+  // slug lookup and the full read under the same `blog-posts` tag the mutations
+  // already bust (actions/blog.ts). A shared article link then costs ~0, not two
+  // serial ~2s backend calls.
   const res = await strapiFetch<{ data: PostListItem[] }>(
     `/api/blog-posts?filters[slug][$eq]=${encodeURIComponent(slug)}&pagination[pageSize]=1`,
-    { cache: "no-store" },
+    PUBLIC_POSTS,
   );
   const stub = res.data[0];
   if (!stub) return null;
   try {
     const full = await strapiFetch<{ data: Post }>(
       `/api/blog-posts/${stub.documentId}`,
+      PUBLIC_POSTS,
     );
     return full.data;
   } catch {

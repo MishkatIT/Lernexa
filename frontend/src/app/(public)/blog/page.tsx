@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import { listPublishedPosts, countByCategory } from "@/lib/blog";
-import { getCurrentUser } from "@/lib/session";
-import { CATEGORIES, categoryLabel, isCategorySlug } from "@/lib/blog-categories";
+import { listPublishedPosts, getCategoryCounts } from "@/lib/blog";
+import { categoryLabel, isCategorySlug } from "@/lib/blog-categories";
 import { Container } from "@/components/ui/Container";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
@@ -16,8 +15,6 @@ export const metadata: Metadata = {
     "Notes on building a learning platform — engineering, product, and how people learn to build software.",
 };
 
-const CAN_WRITE = new Set(["admin", "content-manager"]);
-
 export default async function BlogListPage({
   searchParams,
 }: {
@@ -29,18 +26,14 @@ export default async function BlogListPage({
   const category = isCategorySlug(sp.category) ? sp.category : undefined;
   const filtered = Boolean(q || category);
 
-  const [{ items, pageCount, total }, user, catCounts] = await Promise.all([
+  const [{ items, pageCount, total }, catCounts] = await Promise.all([
     listPublishedPosts(page, { q, category }),
-    getCurrentUser(),
     // Counts only matter on the unfiltered first view; keep the bar cheap otherwise.
     page === 1 && !filtered
-      ? Promise.all(
-          CATEGORIES.map(async (c) => [c.slug, await countByCategory(c.slug)] as const),
-        ).then((pairs) => Object.fromEntries(pairs))
+      ? getCategoryCounts()
       : Promise.resolve<Record<string, number>>({}),
   ]);
 
-  const canWrite = CAN_WRITE.has(user?.role?.type ?? "");
   // The lead story only makes sense on an unfiltered first page.
   const showFeatured = page === 1 && !filtered && items.length > 0;
   const featured = showFeatured ? items[0] : null;
@@ -57,7 +50,7 @@ export default async function BlogListPage({
 
   return (
     <Container size="wide" className="py-10 sm:py-14">
-      <BlogMasthead canWrite={canWrite} />
+      <BlogMasthead />
 
       <div className="mt-6">
         <CategoryBar counts={catCounts} />

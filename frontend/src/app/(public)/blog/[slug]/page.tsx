@@ -10,6 +10,13 @@ import { ArticleBody } from "@/components/blog/ArticleBody";
 import { AuthorCard } from "@/components/blog/AuthorCard";
 import { RelatedPosts } from "@/components/blog/RelatedPosts";
 
+// Published articles are public and identical for everyone. The render path
+// touches no request-time APIs, so force it static: it prerenders per slug and
+// serves from the edge. A publish/edit busts it immediately via the
+// `blog-posts` tag (actions/blog.ts); `revalidate` is the time-based backstop.
+export const dynamic = "force-static";
+export const revalidate = 3600;
+
 type Params = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {

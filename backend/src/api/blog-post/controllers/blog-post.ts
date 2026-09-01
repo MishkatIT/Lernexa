@@ -224,6 +224,24 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
     );
   },
 
+  /**
+   * GET /api/blog-posts/counts/by-category — published-post count per category,
+   * for the topic bar. One request instead of the frontend firing a cached
+   * count per category: on a cold cache that fan-out is ~10 concurrent calls,
+   * exactly the burst a small backend chokes on. The counts share the pool here.
+   */
+  async categoryCounts(ctx) {
+    const entries = await Promise.all(
+      CATEGORIES.map(async (category) => {
+        const n = await strapi.db.query(UID).count({
+          where: { category, publishedAt: { $notNull: true } },
+        });
+        return [category, n] as const;
+      }),
+    );
+    ctx.body = { data: Object.fromEntries(entries) };
+  },
+
   async findOne(ctx) {
     const self = this as unknown as CoreHelpers;
     const isManager = MANAGER_ROLES.includes(ctx.state.user?.role?.type ?? '');

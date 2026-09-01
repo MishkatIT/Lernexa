@@ -189,6 +189,11 @@ export function AppShell({
   async function logout() {
     setLoggingOut(true);
     await fetch("/api/auth/logout", { method: "POST" });
+    try {
+      localStorage.setItem("lernexa:authed", "0");
+    } catch {
+      /* ignore */
+    }
     setOpen(false);
     window.dispatchEvent(new Event("lernexa:navigate"));
     router.push("/");

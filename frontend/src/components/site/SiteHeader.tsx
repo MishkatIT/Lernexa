@@ -12,19 +12,69 @@ type NavUser = {
   email: string;
   avatarUrl: string | null;
   dashboardPath: string;
-} | null;
+};
 
 const LINKS = [
   { href: "/courses", label: "Courses" },
   { href: "/blog", label: "Blog" },
 ];
 
-export function SiteHeader({ user }: { user: NavUser }) {
+const AUTH_HINT = "lernexa:authed";
+
+/**
+ * The session read used to happen in the public layout, which forced every page
+ * under it to render dynamically. It now happens here on the client
+ * (`GET /api/auth/me`) so the layout — and pages that don't otherwise touch the
+ * cookie, like a blog article — can be static / ISR. `undefined` = still
+ * loading; `null` = anonymous. A localStorage hint from the last login lets a
+ * returning signed-in user see the avatar slot immediately instead of a
+ * log-in/sign-up flash.
+ */
+export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [user, setUser] = useState<NavUser | null | undefined>(undefined);
+  const [optimisticAuthed, setOptimisticAuthed] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const close = () => setOpen(false);
+
+  useEffect(() => {
+    // Mount-time read of an external store (localStorage) — it isn't available
+    // during render, and the first client paint must match the server's
+    // (no-hint) output, so this necessarily lands one tick later.
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setOptimisticAuthed(localStorage.getItem(AUTH_HINT) === "1");
+    } catch {
+      /* private mode / disabled storage — no hint, that's fine */
+    }
+
+    let alive = true;
+    const load = () =>
+      fetch("/api/auth/me", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : { user: null }))
+        .then((d: { user: NavUser | null }) => {
+          if (!alive) return;
+          setUser(d.user);
+          try {
+            localStorage.setItem(AUTH_HINT, d.user ? "1" : "0");
+          } catch {
+            /* ignore */
+          }
+        })
+        .catch(() => {
+          if (alive) setUser(null);
+        });
+
+    load();
+    const onNav = () => load();
+    window.addEventListener("lernexa:navigate", onNav);
+    return () => {
+      alive = false;
+      window.removeEventListener("lernexa:navigate", onNav);
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -39,11 +89,19 @@ export function SiteHeader({ user }: { user: NavUser }) {
   async function logout() {
     setLoggingOut(true);
     await fetch("/api/auth/logout", { method: "POST" });
+    try {
+      localStorage.setItem(AUTH_HINT, "0");
+    } catch {
+      /* ignore */
+    }
+    setUser(null);
     close();
     window.dispatchEvent(new Event("lernexa:navigate"));
     router.push("/");
     router.refresh();
   }
+
+  const showAuthPlaceholder = user === undefined && optimisticAuthed;
 
   return (
     <header
@@ -79,6 +137,13 @@ export function SiteHeader({ user }: { user: NavUser }) {
               avatarUrl={user.avatarUrl}
               dashboardPath={user.dashboardPath}
             />
+          ) : showAuthPlaceholder ? (
+            <span
+              aria-hidden
+              className="grid h-9 w-9 place-items-center rounded-full border border-ink-200 bg-paper-raised"
+            >
+              <span className="h-4 w-4 animate-pulse rounded-full bg-ink-200" />
+            </span>
           ) : (
             <>
               <Link

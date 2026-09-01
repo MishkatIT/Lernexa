@@ -61,6 +61,18 @@ type PagedResponse<T> = {
 
 const fallbackPagination = { page: 1, pageCount: 1, total: 0 };
 
+/**
+ * The anonymous catalogue is byte-identical for every visitor, so it's cached
+ * and shared across requests — the same rationale (and shape) as blog.ts
+ * `PUBLIC_POSTS`. Course mutations call `updateTag("courses")` (actions/
+ * courses.ts) so editors get read-your-own-writes; the short window just bounds
+ * drift if that ever misfires. Only ever used for token-less reads.
+ */
+const PUBLIC_COURSES = {
+  cache: "force-cache" as const,
+  next: { revalidate: 180, tags: ["courses"] },
+};
+
 /** Public catalogue, paginated. Server-forced: non-managers only ever see
  *  `published` courses (D-040 — a published course with no lessons still shows).
  *  `q` searches title + description in Strapi, so it spans every page and
@@ -78,7 +90,7 @@ export async function listCatalogue(
   if (q?.trim()) qs.set("q", q.trim());
   const res = await strapiFetch<PagedResponse<CourseLite>>(
     `/api/courses?${qs}`,
-    { cache: "no-store" },
+    PUBLIC_COURSES,
   );
   const p = res.meta?.pagination ?? fallbackPagination;
   return { items: res.data, page: p.page, pageCount: p.pageCount, total: p.total };
@@ -150,9 +162,10 @@ export async function getCourseByDocumentId(
 export async function getCourseBySlug(slug: string): Promise<CourseLite | null> {
   const qs = `filters[slug][$eq]=${encodeURIComponent(slug)}&pagination[pageSize]=1`;
 
-  const anon = await strapiFetch<{ data: CourseLite[] }>(`/api/courses?${qs}`, {
-    cache: "no-store",
-  });
+  const anon = await strapiFetch<{ data: CourseLite[] }>(
+    `/api/courses?${qs}`,
+    PUBLIC_COURSES,
+  );
   if (anon.data[0]) return anon.data[0];
 
   const token = await getToken();

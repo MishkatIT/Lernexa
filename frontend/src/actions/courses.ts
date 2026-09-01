@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { getToken } from "@/lib/session";
 import { strapiFetch, StrapiError } from "@/lib/strapi";
 import { courseSchema, type CourseInput } from "@/lib/schemas";
@@ -37,6 +37,7 @@ export async function createCourse(input: CourseInput): Promise<ActionResult> {
     );
     revalidatePath("/manage/courses");
     revalidatePath("/courses");
+    updateTag("courses");
     return { ok: true, documentId: res.data.documentId };
   } catch (err) {
     return {
@@ -65,6 +66,7 @@ export async function updateCourse(
     revalidatePath("/manage/courses");
     revalidatePath(`/manage/courses/${documentId}`);
     revalidatePath("/courses");
+    updateTag("courses");
     return { ok: true, documentId };
   } catch (err) {
     return {
@@ -92,6 +94,7 @@ async function transitionCourse(
     revalidatePath("/manage/courses");
     revalidatePath(`/manage/courses/${documentId}`);
     revalidatePath("/courses");
+    updateTag("courses");
     return { ok: true, documentId };
   } catch (err) {
     return {
@@ -123,6 +126,7 @@ export async function deleteCourse(documentId: string): Promise<ActionResult> {
     await strapiFetch(`/api/courses/${documentId}`, { method: "DELETE", token });
     revalidatePath("/manage/courses");
     revalidatePath("/courses");
+    updateTag("courses");
     return { ok: true };
   } catch (err) {
     // 409 from the delete guard carries a human message ("… 23 students are enrolled").

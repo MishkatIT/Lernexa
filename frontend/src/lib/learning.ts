@@ -54,11 +54,24 @@ export type LearnContext = {
 export async function getMyEnrollments(): Promise<MyEnrollment[]> {
   const token = await getToken();
   if (!token) return [];
-  const res = await strapiFetch<{ data: MyEnrollment[] }>(
-    "/api/enrollments/me",
-    { token },
-  );
-  return res.data;
+  try {
+    const res = await strapiFetch<{ data: MyEnrollment[] }>(
+      "/api/enrollments/me",
+      { token },
+    );
+    return res.data;
+  } catch (err) {
+    // Callers fire this in parallel with getCurrentUser(), before the role is
+    // known. A non-student (403) or a stale token (401) just means "no
+    // enrolments to show" — not an error worth crashing the page over.
+    if (
+      err instanceof StrapiError &&
+      (err.status === 401 || err.status === 403)
+    ) {
+      return [];
+    }
+    throw err;
+  }
 }
 
 export type DashboardResume = {

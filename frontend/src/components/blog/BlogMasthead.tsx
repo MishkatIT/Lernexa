@@ -1,12 +1,13 @@
-import Link from "next/link";
 import { SearchField } from "@/components/ui/SearchField";
+import { WritePostButton } from "@/components/blog/WritePostButton";
 
 /**
  * The blog's own masthead — sits under the global site header. Editorial title,
  * a one-line standfirst, the search field, and the Write action for editors
- * (admin / content-manager only; the button is server-gated by the page).
+ * (admin / content-manager only — resolved client-side by `WritePostButton` so
+ * the page stays cache-friendly; `/manage/blog/new` is still server-gated).
  */
-export function BlogMasthead({ canWrite }: { canWrite: boolean }) {
+export function BlogMasthead() {
   return (
     <div className="border-b border-ink-200 pb-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -20,14 +21,7 @@ export function BlogMasthead({ canWrite }: { canWrite: boolean }) {
           </p>
         </div>
 
-        {canWrite ? (
-          <Link
-            href="/manage/blog/new"
-            className="inline-flex h-10 shrink-0 items-center rounded-md bg-ink-900 px-4 text-small font-medium text-paper-raised transition-opacity hover:opacity-90"
-          >
-            Write a post
-          </Link>
-        ) : null}
+        <WritePostButton />
       </div>
 
       <div className="mt-6 max-w-sm">

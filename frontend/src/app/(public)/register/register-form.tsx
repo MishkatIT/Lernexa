@@ -50,6 +50,12 @@ export function RegisterForm() {
       return;
     }
 
+    try {
+      localStorage.setItem("lernexa:authed", "1");
+    } catch {
+      /* ignore */
+    }
+    window.dispatchEvent(new Event("lernexa:navigate"));
     router.push(body.redirectTo || "/dashboard");
     router.refresh();
   }

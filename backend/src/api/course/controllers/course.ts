@@ -640,6 +640,198 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
   },
 
   /**
+   * GET /api/courses/manage/snapshot — the instructor home ("which students are
+   * stuck?") in ONE request. Replaces the frontend's 1 + N fan-out (list my
+   * courses, then one student-progress call per course). Four flat queries
+   * regardless of course count — courses, their published lessons, every
+   * enrolment, every completion — then the same in-memory rollup the frontend
+   * used to do. Route-gated to manager roles; an instructor is scoped to their
+   * own courses here exactly as `find` scopes the catalogue.
+   */
+  async manageSnapshot(ctx) {
+    const role = ctx.state.user?.role?.type ?? '';
+    const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+    const cutoff = Date.now() - WEEK_MS;
+
+    const empty = {
+      totals: { courses: 0, students: 0, lessons: 0, avgPercent: 0 },
+      stuckStudents: [] as unknown[],
+      strugglingCourses: [] as unknown[],
+      courses: [] as unknown[],
+    };
+
+    const courseWhere =
+      role === 'instructor' ? { instructor: { id: ctx.state.user.id } } : {};
+
+    const courses = (await strapi.db.query(UID).findMany({
+      where: courseWhere,
+      select: ['id', 'documentId', 'title'],
+      orderBy: { createdAt: 'desc' },
+    })) as Array<{ id: number; documentId: string; title: string }>;
+
+    if (courses.length === 0) {
+      ctx.body = { data: empty };
+      return;
+    }
+
+    const courseIds = courses.map((c) => c.id);
+
+    const [lessons, enrollments, completions] = (await Promise.all([
+      strapi.db.query('api::lesson.lesson').findMany({
+        where: { course: { id: { $in: courseIds } }, published: { $ne: false } },
+        select: ['id'],
+        populate: { course: { select: ['id'] } },
+      }),
+      strapi.db.query(ENROLLMENT_UID).findMany({
+        where: { course: { id: { $in: courseIds } } },
+        select: ['enrolledAt'],
+        populate: {
+          student: { select: ['id', 'fullName', 'username'] },
+          course: { select: ['id'] },
+        },
+        orderBy: { enrolledAt: 'asc' },
+      }),
+      strapi.db.query(COMPLETION_UID).findMany({
+        where: { course: { id: { $in: courseIds } } },
+        select: ['id'],
+        populate: {
+          student: { select: ['id'] },
+          lesson: { select: ['id'] },
+          course: { select: ['id'] },
+        },
+      }),
+    ])) as [
+      Array<{ id: number; course?: { id: number } | null }>,
+      Array<{
+        enrolledAt: string;
+        student?: { id: number; fullName: string | null; username: string } | null;
+        course?: { id: number } | null;
+      }>,
+      Array<{
+        student?: { id: number } | null;
+        lesson?: { id: number } | null;
+        course?: { id: number } | null;
+      }>,
+    ];
+
+    const lessonIdsByCourse = new Map<number, number[]>();
+    for (const l of lessons) {
+      if (!l.course) continue;
+      const arr = lessonIdsByCourse.get(l.course.id) ?? [];
+      arr.push(l.id);
+      lessonIdsByCourse.set(l.course.id, arr);
+    }
+
+    const completionsByCourse = new Map<
+      number,
+      Array<{ studentId: number; lessonId: number }>
+    >();
+    for (const c of completions) {
+      if (!c.course || !c.student || !c.lesson) continue;
+      const arr = completionsByCourse.get(c.course.id) ?? [];
+      arr.push({ studentId: c.student.id, lessonId: c.lesson.id });
+      completionsByCourse.set(c.course.id, arr);
+    }
+
+    const rosterByCourse = new Map<
+      number,
+      Array<{ studentId: number; name: string; enrolledAt: string }>
+    >();
+    for (const e of enrollments) {
+      if (!e.course || !e.student) continue;
+      const arr = rosterByCourse.get(e.course.id) ?? [];
+      arr.push({
+        studentId: e.student.id,
+        name: e.student.fullName ?? e.student.username,
+        enrolledAt: e.enrolledAt,
+      });
+      rosterByCourse.set(e.course.id, arr);
+    }
+
+    const stuckStudents: Array<{
+      name: string;
+      course: string;
+      courseId: string;
+      enrolledAt: string;
+    }> = [];
+    const strugglingCourses: Array<{
+      id: string;
+      title: string;
+      enrolled: number;
+      avgPercent: number;
+    }> = [];
+    const courseList: Array<{
+      id: string;
+      title: string;
+      enrolled: number;
+      lessons: number;
+      avgPercent: number;
+    }> = [];
+    const studentIds = new Set<number>();
+    let percentSum = 0;
+    let rowCount = 0;
+
+    for (const course of courses) {
+      const lessonIds = lessonIdsByCourse.get(course.id) ?? [];
+      const roster = rosterByCourse.get(course.id) ?? [];
+      const progressByStudent = computeProgressForCourse(
+        lessonIds,
+        completionsByCourse.get(course.id) ?? [],
+      );
+      const zero = { completed: 0, total: lessonIds.length, percent: 0 };
+
+      let coursePercentSum = 0;
+      for (const r of roster) {
+        const p = progressByStudent.get(String(r.studentId)) ?? zero;
+        coursePercentSum += p.percent;
+        studentIds.add(r.studentId);
+        percentSum += p.percent;
+        rowCount += 1;
+        if (p.percent === 0 && new Date(r.enrolledAt).getTime() < cutoff) {
+          stuckStudents.push({
+            name: r.name,
+            course: course.title,
+            courseId: course.documentId,
+            enrolledAt: r.enrolledAt,
+          });
+        }
+      }
+
+      const avg =
+        roster.length > 0 ? Math.round(coursePercentSum / roster.length) : 0;
+      courseList.push({
+        id: course.documentId,
+        title: course.title,
+        enrolled: roster.length,
+        lessons: lessonIds.length,
+        avgPercent: avg,
+      });
+      if (roster.length > 0 && avg < 30) {
+        strugglingCourses.push({
+          id: course.documentId,
+          title: course.title,
+          enrolled: roster.length,
+          avgPercent: avg,
+        });
+      }
+    }
+
+    ctx.body = {
+      data: {
+        totals: {
+          courses: courses.length,
+          students: studentIds.size,
+          lessons: courseList.reduce((s, c) => s + c.lessons, 0),
+          avgPercent: rowCount > 0 ? Math.round(percentSum / rowCount) : 0,
+        },
+        stuckStudents,
+        strugglingCourses,
+        courses: courseList,
+      },
+    };
+  },
+
+  /**
    * POST /api/courses/:id/enrollments — manager adds students by email.
    * Route-gated by has-role(manager) + is-course-owner, so an instructor only
    * reaches their own course. Students are resolved by email server-side (the
