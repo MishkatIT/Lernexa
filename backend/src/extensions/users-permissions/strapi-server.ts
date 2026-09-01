@@ -80,9 +80,13 @@ export default (plugin: any) => {
       return ctx.unauthorized();
     }
 
+    // Fetch only what `toMeResponse` maps — not the whole user row (which
+    // includes the password hash and the reset/confirmation tokens). Same one
+    // query, a smaller result.
     const user = await strapi.db.query('plugin::users-permissions.user').findOne({
       where: { id: ctx.state.user.id },
-      populate: { role: true },
+      select: ['id', 'username', 'email', 'fullName', 'avatarUrl', 'bio', 'blocked'],
+      populate: { role: { fields: ['id', 'name', 'type'] } },
     });
 
     ctx.body = toMeResponse(user);
@@ -128,9 +132,13 @@ export default (plugin: any) => {
       data,
     });
 
+    // Fetch only what `toMeResponse` maps — not the whole user row (which
+    // includes the password hash and the reset/confirmation tokens). Same one
+    // query, a smaller result.
     const user = await strapi.db.query('plugin::users-permissions.user').findOne({
       where: { id: ctx.state.user.id },
-      populate: { role: true },
+      select: ['id', 'username', 'email', 'fullName', 'avatarUrl', 'bio', 'blocked'],
+      populate: { role: { fields: ['id', 'name', 'type'] } },
     });
 
     ctx.body = toMeResponse(user);

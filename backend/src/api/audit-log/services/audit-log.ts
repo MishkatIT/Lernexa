@@ -72,35 +72,49 @@ export default factories.createCoreService(UID, ({ strapi }) => ({
   /**
    * Append one entry. Never throws — an audit failure must not break the user
    * action it describes; it is logged and swallowed.
+   *
+   * The row is never on the critical path of the action it records, so in
+   * production the INSERT is fired without holding the response for it (it
+   * still swallows its own errors). Under the test runner it stays awaited —
+   * the suite asserts on audit rows immediately after the action that writes
+   * them, and needs that to be deterministic.
    */
   async record(input: RecordInput): Promise<void> {
-    try {
-      const actor: Actor = {
-        ...(input.ctx ? actorFromCtx(input.ctx) : {}),
-        ...(input.actor ?? {}),
-      };
+    // Read everything off the Koa ctx now, synchronously — the INSERT may run
+    // after the response has been sent and the ctx is on its way out.
+    const actor: Actor = {
+      ...(input.ctx ? actorFromCtx(input.ctx) : {}),
+      ...(input.actor ?? {}),
+    };
+    const row = {
+      action: input.action,
+      category: input.category,
+      actorId: actor.id ?? null,
+      actorLabel: actor.label ?? null,
+      actorRole: actor.role ?? null,
+      targetType: input.target?.type ?? null,
+      targetId: input.target?.id != null ? String(input.target.id) : null,
+      targetLabel: input.target?.label ?? null,
+      metadata: input.metadata
+        ? (sanitize(input.metadata) as Record<string, unknown>)
+        : null,
+      ip: input.ctx ? ipFromCtx(input.ctx) : null,
+    };
 
-      await strapi.db.query(UID).create({
-        data: {
-          action: input.action,
-          category: input.category,
-          actorId: actor.id ?? null,
-          actorLabel: actor.label ?? null,
-          actorRole: actor.role ?? null,
-          targetType: input.target?.type ?? null,
-          targetId:
-            input.target?.id != null ? String(input.target.id) : null,
-          targetLabel: input.target?.label ?? null,
-          metadata: input.metadata
-            ? (sanitize(input.metadata) as Record<string, unknown>)
-            : null,
-          ip: input.ctx ? ipFromCtx(input.ctx) : null,
-        },
-      });
-    } catch (err) {
-      strapi.log.warn(
-        `[audit] failed to record "${input.action}": ${(err as Error).message}`,
-      );
+    const write = async (): Promise<void> => {
+      try {
+        await strapi.db.query(UID).create({ data: row });
+      } catch (err) {
+        strapi.log.warn(
+          `[audit] failed to record "${input.action}": ${(err as Error).message}`,
+        );
+      }
+    };
+
+    if (process.env.NODE_ENV === 'test') {
+      await write();
+    } else {
+      void write();
     }
   },
 }));

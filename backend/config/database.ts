@@ -53,7 +53,19 @@ const config = ({ env }: Core.Config.Shared.ConfigParams): Core.Config.Database 
         },
         schema: env('DATABASE_SCHEMA', 'public'),
       },
-      pool: { min: env.int('DATABASE_POOL_MIN', 2), max: env.int('DATABASE_POOL_MAX', 10) },
+      pool: {
+        // Keep a few connections open at all times. Strapi issues several
+        // queries per request (main + count + one per populated relation); with
+        // a cold pool each of those pays a fresh TCP + TLS + auth handshake to
+        // Postgres. A warm floor of 5 covers a normal request without opening
+        // anything, and `idle` is long enough that a quiet minute doesn't reap
+        // the pool back down to `min`.
+        min: env.int('DATABASE_POOL_MIN', 5),
+        max: env.int('DATABASE_POOL_MAX', 10),
+        idleTimeoutMillis: env.int('DATABASE_POOL_IDLE_MS', 300_000),
+        createTimeoutMillis: env.int('DATABASE_POOL_CREATE_TIMEOUT_MS', 30_000),
+        acquireTimeoutMillis: env.int('DATABASE_POOL_ACQUIRE_TIMEOUT_MS', 30_000),
+      },
     },
     sqlite: {
       client: 'sqlite',
